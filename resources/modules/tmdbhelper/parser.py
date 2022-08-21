@@ -91,6 +91,22 @@ def merge_two_dicts(x, y, reverse=False, deep=False):
     return z
 
 
+def merge_dicts(org, upd, skipempty=False):
+    source = org.copy()
+    for k, v in upd.items():
+        if not k:
+            continue
+        if skipempty and not v:
+            continue
+        if isinstance(v, dict):
+            if not isinstance(source.get(k), dict):
+                source[k] = {}
+            source[k] = merge_dicts(source.get(k), v, skipempty=skipempty)
+            continue
+        source[k] = v
+    return source
+
+
 def merge_two_items(base_item, item):
     item = item or {}
     base_item = base_item or {}
