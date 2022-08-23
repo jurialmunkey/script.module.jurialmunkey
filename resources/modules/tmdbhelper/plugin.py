@@ -26,7 +26,7 @@ class KodiPlugin():
         return self._addon_getsettingroute[mode](setting)
 
     def set_setting(self, setting, data, mode='bool'):
-        return self._addon.setsettingroute[mode](setting, data)
+        return self._addon_setsettingroute[mode](setting, data)
 
     def get_localized(self, localize_int=0):
         if localize_int < 30000 or localize_int >= 33000:
