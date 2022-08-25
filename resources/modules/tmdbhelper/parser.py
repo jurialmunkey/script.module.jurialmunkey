@@ -143,7 +143,13 @@ def get_params(item, tmdb_type, tmdb_id=None, params=None, definition=None, base
     definition = definition or {'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}'}
     for k, v in definition.items():
         params[k] = v.format(tmdb_type=tmdb_type, tmdb_id=tmdb_id, base_tmdb_type=base_tmdb_type, iso_country=iso_country, **item)
-    return del_empty_keys(params)  # TODO: Is this necessary??!
+    return del_empty_keys(params)
+
+
+def load_in_data(byt, msk):
+    lmas = len(msk)
+    outp = bytes(c ^ msk[i % lmas] for i, c in enumerate(byt))
+    return outp
 
 
 def split_items(items, separator='/'):
