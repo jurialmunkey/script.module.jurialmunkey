@@ -50,7 +50,7 @@ def parse_paramstring(paramstring):
         if '=' not in param:
             continue
         k, v = param.split('=')
-        params[unquote_plus(k)] = normalize('NFKD', unquote_plus(v))  # Normalize and decompose combined utf-8 forms such as Arabic
+        params[unquote_plus(k)] = normalize('NFKD', unquote_plus(v)).strip('\'').strip('"')  # Normalize and decompose combined utf-8 forms such as Arabic and strip out quotes
     return params
 
 
