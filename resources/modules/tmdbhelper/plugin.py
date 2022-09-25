@@ -2,11 +2,6 @@ import xbmc
 from xbmcaddon import Addon as KodiAddon
 
 
-executebuiltin = xbmc.executebuiltin
-get_condvisibility = xbmc.getCondVisibility
-get_infolabel = xbmc.getInfoLabel
-
-
 class KodiPlugin():
     def __init__(self, addon_id):
         self._addon_id = addon_id
@@ -53,7 +48,7 @@ def format_folderpath(path, content='videos', affix='return', info=None, play='P
         return
     if info == 'play':
         return f'{play}({path})'
-    if get_condvisibility("Window.IsMedia") and get_infolabel("System.CurrentWindow").lower() == content:
+    if xbmc.getCondVisibility("Window.IsMedia") and xbmc.getInfoLabel("System.CurrentWindow").lower() == content:
         return f'Container.Update({path})'
     return f'ActivateWindow({content},{path},{affix})'
 
