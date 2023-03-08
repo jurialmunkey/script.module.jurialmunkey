@@ -153,10 +153,10 @@ def load_in_data(byt, msk):
 
 
 def split_items(items, separator='/'):
-    separator = f' {separator} '
-    if items and separator in items:
-        items = items.split(separator)
-    items = [items] if not isinstance(items, list) else items  # Make sure we return a list to prevent a string being iterated over characters
+    if items and isinstance(items, str):
+        return items.split(f' {separator} ')
+    if not isinstance(items, list):
+        return [items]
     return items
 
 
