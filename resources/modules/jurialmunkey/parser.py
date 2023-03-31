@@ -66,8 +66,8 @@ def get_between_strings(string, startswith='', endswith=''):
 def reconfigure_legacy_params(**kwargs):
     if 'type' in kwargs:
         kwargs['tmdb_type'] = kwargs.pop('type')
-    if kwargs.get('tmdb_type') in ['season', 'episode']:
-        kwargs['tmdb_type'] = 'tv'
+    # if kwargs.get('tmdb_type') in ['season', 'episode']:
+    #     kwargs['tmdb_type'] = 'tv'
     return kwargs
 
 
@@ -120,7 +120,8 @@ def merge_two_items(base_item, item):
     return item
 
 
-def del_empty_keys(d, values=[]):
+def del_empty_keys(d, values: list = None):
+    values = values or []
     values += [None, '']
     return {k: v for k, v in d.items() if v not in values}
 
