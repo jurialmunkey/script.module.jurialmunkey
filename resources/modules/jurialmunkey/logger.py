@@ -2,6 +2,18 @@ import xbmc
 from timeit import default_timer as timer
 
 
+def kodi_try_except_internal_traceback(log_msg, exception_type=Exception):
+    """ Decorator to catch exceptions and notify error for uninterruptable services """
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except exception_type as exc:
+                self.kodi_traceback(exc, log_msg)
+        return wrapper
+    return decorator
+
+
 class Logger():
     def __init__(
             self,

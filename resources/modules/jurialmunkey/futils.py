@@ -5,6 +5,69 @@
 import xbmc
 import xbmcvfs
 
+ADDONDATA = 'special://profile/addon_data/script.module.jurialmunkey/'
+ALPHANUM_CHARS = "-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+INVALID_FILECHARS = "\\/\"\'<>:|?*"
+
+
+class FileUtils():
+    addondata = ADDONDATA
+
+    def get_write_path(self, folder, join_addon_data=True, make_dir=True):
+        if join_addon_data:
+            folder = f'{self.addondata}{folder}/'
+        main_dir = xbmcvfs.validatePath(xbmcvfs.translatePath(folder))
+        if make_dir and not xbmcvfs.exists(main_dir):
+            try:  # Try makedir to avoid race conditions
+                xbmcvfs.mkdirs(main_dir)
+            except FileExistsError:
+                pass
+        return main_dir
+
+    def get_file_path(self, folder, filename, join_addon_data=True, make_dir=True):
+        return validate_join(self.get_write_path(folder, join_addon_data, make_dir), filename)
+
+
+def json_loads(obj):
+    import json
+
+    def json_int_keys(ordered_pairs):
+        result = {}
+        for key, value in ordered_pairs:
+            try:
+                key = int(key)
+            except ValueError:
+                pass
+            result[key] = value
+        return result
+    try:
+        return json.loads(obj, object_pairs_hook=json_int_keys)
+    except json.JSONDecodeError:
+        return
+
+
+def json_dumps(obj, separators=(',', ':')):
+    from json import dumps
+    return dumps(obj, separators=separators)
+
+
+def validate_join(folder, filename):
+    path = '/'.join([folder, filename])
+    return xbmcvfs.validatePath(xbmcvfs.translatePath(path))
+
+
+def validify_filename(filename, alphanum=False):
+    import unicodedata
+    filename = unicodedata.normalize('NFD', filename)
+    filename = u''.join([c for c in filename if (not alphanum or c in ALPHANUM_CHARS) and c not in INVALID_FILECHARS])
+    return filename.strip('.')
+
+
+def get_filecache_name(cache_name, alphanum=False):
+    cache_name = cache_name or ''
+    cache_name = cache_name.replace('\\', '_').replace('/', '_').replace('.', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('__', '_')
+    return validify_filename(cache_name, alphanum=alphanum).rstrip('_')
+
 
 def make_hash(content):
     import hashlib
