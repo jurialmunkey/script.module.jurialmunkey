@@ -7,10 +7,8 @@
   <extension point="xbmc.python.module" library="resources/modules" />
   <extension point="xbmc.addon.metadata">
     <description lang="en">Common code required by TMDbHelper and other related jurialmunkey add-ons</description>
-    <reuselanguageinvoker>false</reuselanguageinvoker>
-    <license></license>
-    <language></language>
-    <website></website>
+    <license>GPL-3.0-or-later</license>
+    <website>https://github.com/jurialmunkey/script.module.jurialmunkey</website>
     <assets>
       <icon>icon.png</icon>
     </assets>
