@@ -7,7 +7,7 @@ from jurialmunkey.tmdate import get_timestamp, set_timestamp
 from jurialmunkey.plugin import KodiPlugin
 from jurialmunkey.bcache import BasicCache
 
-KODIPLUGIN = KodiPlugin('plugin.video.themoviedb.helper')
+KODIPLUGIN = KodiPlugin('script.module.jurialmunkey')
 get_localized = KODIPLUGIN.get_localized
 
 CACHE_SHORT, CACHE_MEDIUM, CACHE_LONG, CACHE_EXTENDED = 1, 7, 14, 90
