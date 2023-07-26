@@ -2,7 +2,7 @@ from xbmc import executeJSONRPC
 from jurialmunkey.parser import try_int
 
 
-def get_jsonrpc(method=None, params=None, query_id=1, kodi_log=None):
+def get_jsonrpc(method=None, params=None, query_id=1):
     if not method:
         return {}
     query = {
@@ -16,9 +16,12 @@ def get_jsonrpc(method=None, params=None, query_id=1, kodi_log=None):
         jrpc = executeJSONRPC(dumps(query))
         response = loads(jrpc)
     except Exception as exc:
-        if kodi_log:
-            kodi_log(f'JSONRPC Error:\n{exc}', 1)
+        from jurialmunkey.logger import Logger
+        Logger(log_name='[script.module.jurialmunkey]').kodi_log(f'JSONRPC Error:\n{exc}', 1)
         response = {}
+    if 'error' in response:
+        from jurialmunkey.logger import Logger
+        Logger(log_name='[script.module.jurialmunkey]').kodi_log(f'JSONRPC Error:\n{query}\n{response}', 1)
     return response
 
 

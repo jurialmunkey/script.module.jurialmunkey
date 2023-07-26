@@ -243,7 +243,7 @@ class SimpleCache(object):
                 connection.execute("CREATE INDEX idx ON simplecache(id)")
                 return self._set_pragmas(connection)
             except Exception as error:
-                self.kodi_log(f'CACHE: Exception while initializing _database: {error} ({attempts})', 1)
+                self.kodi_log(f'CACHE: Exception while initializing _database: {error} ({attempts})\n{self._sc_name}', 1)
                 if attempts < 1:
                     return
                 attempts -= 1
@@ -272,7 +272,7 @@ class SimpleCache(object):
                     error = err
                     try:
                         if "database is locked" == f'{error}':
-                            self.kodi_log("CACHE: Locked: Retrying DB commit...", 1)
+                            self.kodi_log(f"CACHE: Locked: Retrying DB commit...\n{self._sc_name}", 1)
                             retries -= 1
                             self._monitor.waitForAbort(0.5)
                         else:
@@ -281,5 +281,5 @@ class SimpleCache(object):
                         break
                 except Exception:
                     break
-            self.kodi_log(f'CACHE: _database ERROR ! -- {error}', 1)
+            self.kodi_log(f'CACHE: _database ERROR ! -- {error}\n{self._sc_name}', 1)
         return None
