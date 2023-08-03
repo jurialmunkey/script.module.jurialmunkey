@@ -84,12 +84,15 @@ def set_tags(dbid=None, dbtype=None, tags=None):
     if not dbid or not dbtype or not tags:
         return
 
-    db_tags = get_details(dbid, dbtype, key='tag') or []
-    db_tags = list(set(db_tags) | set(tags))
+    old_db_tags = set(get_details(dbid, dbtype, key='tag') or [])
+    new_db_tags = old_db_tags | set(tags)
+
+    if new_db_tags == old_db_tags:
+        return
 
     return get_jsonrpc(
         method=f'VideoLibrary.Set{dbtype.capitalize()}Details',
-        params={f'{dbtype}id': dbid, "tag": db_tags})
+        params={f'{dbtype}id': dbid, "tag": list(new_db_tags)})
 
 
 def set_watched(dbid=None, dbtype=None, plays=1):
