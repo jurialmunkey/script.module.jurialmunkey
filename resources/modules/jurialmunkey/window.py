@@ -28,6 +28,14 @@ def get_property(name, set_property=None, clear_property=False, window_id=None, 
     return try_type(ret_property, is_type or str)
 
 
+def set_to_windowprop(text, x, window_prop, window_id=None):
+    if not window_prop:
+        return
+    if x == 0:
+        xbmc.executebuiltin(f'SetProperty({window_prop},{text}{f",{window_id}" if window_id else ""})')
+    xbmc.executebuiltin(f'SetProperty({window_prop}.{x},{text}{f",{window_id}" if window_id else ""})')
+
+
 def _property_is_value(name, value):
     if not value and not get_property(name):
         return True
