@@ -1,3 +1,11 @@
+def boolean(string):
+    if not isinstance(string, str):
+        return bool(string)
+    if string.lower() in ('false', '0', ''):
+        return False
+    return True
+
+
 def try_int(string, base=None, fallback=0):
     '''helper to parse int from string without erroring on empty or misformed string'''
     try:
