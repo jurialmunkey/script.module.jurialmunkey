@@ -95,36 +95,38 @@ def _is_inactive(window_id, invert=False):
     return True if not invert else False
 
 
-def wait_until_active(window_id, instance_id=None, poll=1, timeout=30, invert=False):
+def wait_until_active(window_id, instance_id=None, poll=1, timeout=30, invert=False, xbmc_monitor=None):
     """
     Wait for window ID to open (or to close if invert set to True). Returns window_id if successful.
     Pass instance_id if there is also a base window that needs to be open underneath
     """
-    xbmc_monitor = xbmc.Monitor()
+    _xbmc_monitor = xbmc_monitor or xbmc.Monitor()
     while (
-            not xbmc_monitor.abortRequested() and timeout > 0
+            not _xbmc_monitor.abortRequested() and timeout > 0
             and _is_inactive(window_id, invert)
             and _is_base_active(instance_id)):
-        xbmc_monitor.waitForAbort(poll)
+        _xbmc_monitor.waitForAbort(poll)
         timeout -= poll
-    del xbmc_monitor
+    if not xbmc_monitor:
+        del _xbmc_monitor
     if timeout > 0 and _is_base_active(instance_id):
         return window_id
 
 
-def wait_until_updated(container_id=9999, instance_id=None, poll=1, timeout=60):
+def wait_until_updated(container_id=9999, instance_id=None, poll=1, timeout=60, xbmc_monitor=None):
     """
     Wait for container to update. Returns container_id if successful
     Pass instance_id if there is also a base window that needs to be open underneath
     """
-    xbmc_monitor = xbmc.Monitor()
+    _xbmc_monitor = xbmc_monitor or xbmc.Monitor()
     while (
-            not xbmc_monitor.abortRequested() and timeout > 0
+            not _xbmc_monitor.abortRequested() and timeout > 0
             and _is_updating(container_id)
             and _is_base_active(instance_id)):
-        xbmc_monitor.waitForAbort(poll)
+        _xbmc_monitor.waitForAbort(poll)
         timeout -= poll
-    del xbmc_monitor
+    if not xbmc_monitor:
+        del _xbmc_monitor
     if timeout > 0 and _is_base_active(instance_id):
         return container_id
 
