@@ -17,14 +17,18 @@ class ParallelThread():
         self.queue = [None] * len(items)
         self._pool = [None] * thread_max
         self._exit = False
+
+        def _get_free_slot(idx):
+            for y, j in enumerate(self._pool):
+                if j.is_alive():
+                    continue
+                return y
+            return idx
+
         for x, i in enumerate(items):
             n = x
             while n >= thread_max and not self._mon.abortRequested():  # Hit our thread limit so look for a spare spot in the queue
-                for y, j in enumerate(self._pool):
-                    if j.is_alive():
-                        continue
-                    n = y
-                    break
+                n = _get_free_slot(n)
                 if n >= thread_max:
                     self._mon.waitForAbort(0.025)
             try:
@@ -32,6 +36,12 @@ class ParallelThread():
                 self._pool[n].start()
             except IndexError:
                 self.kodi_log(f'ParallelThread: INDEX {n} OUT OF RANGE {thread_max}', 1)
+            except RuntimeError as exc:
+                self.kodi_log(f'ParallelThread: RUNTIME ERROR: UNABLE TO SPAWN {n} THREAD {thread_max}\nREDUCE MAX THREAD COUNT\n{exc}', 1)
+                thread_max = 1  # RuntimeError when out of threads so stop multithreading and try to find a spot
+                while not self._mon.abortRequested():
+                    _get_free_slot(n)
+                    self._mon.waitForAbort(0.025)
 
     def _threadwrapper(self, x, i, func, *args, **kwargs):
         self.queue[x] = func(i, *args, **kwargs)
