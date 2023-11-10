@@ -119,16 +119,22 @@ class TimerList():
         self.log_threshold = log_threshold
         self.timer_a = timer() if logging else None
 
+    @property
+    def total_time(self):
+        try:
+            return self._total_time
+        except AttributeError:
+            self._total_time = timer() - self.timer_a
+            return self._total_time
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if not self.timer_a:
             return
-        timer_z = timer()
-        total_time = timer_z - self.timer_a
-        if total_time > self.log_threshold:
-            self.list_obj.append(total_time)
+        if self.total_time > self.log_threshold:
+            self.list_obj.append(self.total_time)
 
 
 class TimerFunc():
