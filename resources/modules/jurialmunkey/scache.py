@@ -283,11 +283,12 @@ class SimpleCache(object):
                     break
                 retries = retries - 1
                 if retries > 0:
+                    log_level = 1 if retries < self._retries - 1 else 2  # Only debug log for first retry
                     transaction = 'commit' if data else 'lookup'
-                    self.kodi_log(f'CACHE: _database LOCKED -- Retrying DB {transaction}...\n{self._sc_name}', 1)
+                    self.kodi_log(f'CACHE: _database LOCKED -- Retrying DB {transaction}...\n{self._sc_name}', log_level)
                     self._monitor.waitForAbort(self._retry_polling)
                     continue
                 error = 'Retry failed. Database locked.'
+        if error not in [None, 'not an error']:
             self.kodi_log(f'CACHE: _database ERROR! -- {error}\n{self._sc_name}', 1)
-
         return None
