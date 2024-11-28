@@ -31,8 +31,8 @@ class SimpleCache(object):
     _memcache = False
     _basefolder = ''
     _fileutils = FILEUTILS
-    _retries = 4
-    _retry_polling = 0.1
+    _db_timeout = 3.0
+    _db_read_timeout = 1.0
 
     def __init__(self, folder=None, filename=None):
         '''Initialize our caching class'''
@@ -102,6 +102,7 @@ class SimpleCache(object):
         lastexecuted = self._win.getProperty(f'{self._sc_name}.clean.lastexecuted')
         if not lastexecuted:
             self._win.setProperty(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
+            self._init_database()
             return
         if (int(lastexecuted) + self._auto_clean_interval) < cur_time:
             self._do_cleanup()
@@ -144,7 +145,7 @@ class SimpleCache(object):
         '''get cache data from sqllite _database'''
         result = None
         query = "SELECT expires, data, checksum FROM simplecache WHERE id = ? LIMIT 1"
-        cache_data = self._execute_sql(query, (endpoint,))
+        cache_data = self._execute_sql(query, (endpoint,), read_only=True)
         if not cache_data:
             return
         cache_data = cache_data.fetchone()
@@ -227,37 +228,43 @@ class SimpleCache(object):
             self._connection = connection
         return connection
 
-    def _get_database(self, attempts=2):
-        '''get reference to our sqllite _database - performs basic integrity check'''
+    def _init_database(self):
+        if xbmcvfs.exists(self._db_file):
+            return
+            # self.kodi_log(f'CACHE: Deleting Corrupt File: {self._db_file}...', 1)
+            # xbmcvfs.delete(self._db_file)
+        return self._create_database()
+
+    def _create_database(self):
         try:
-            connection = self._connection or sqlite3.connect(self._db_file, timeout=2.0, isolation_level=None, check_same_thread=not self._re_use_con)
+            self.kodi_log(f'CACHE: Initialising: {self._db_file}...', 1)
+            connection = self._connection or sqlite3.connect(self._db_file, timeout=5.0, isolation_level=None, check_same_thread=not self._re_use_con)
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS simplecache(
+                id TEXT UNIQUE, expires INTEGER, data TEXT, checksum INTEGER)""")
+        except Exception as error:
+            self.kodi_log(f'CACHE: Exception while initializing _database: {error}\n{self._sc_name}', 1)
+        try:
+            connection.execute("CREATE INDEX idx ON simplecache(id)")
+        except Exception as error:
+            self.kodi_log(f'CACHE: Exception while creating index for _database: {error}\n{self._sc_name}', 1)
+        try:
+            return self._set_pragmas(connection)
+        except Exception as error:
+            self.kodi_log(f'CACHE: Exception while setting pragmas for _database: {error}\n{self._sc_name}', 1)
+
+    def _get_database(self, read_only=False):
+        '''get reference to our sqllite _database - performs basic integrity check'''
+        timeout = self._db_read_timeout if read_only else self._db_timeout
+        try:
+            connection = self._connection or sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None, check_same_thread=not self._re_use_con)
             connection.execute('SELECT * FROM simplecache LIMIT 1')
             return self._set_pragmas(connection)
-        except Exception:
-            # our _database is corrupt or doesn't exist yet, we simply try to recreate it
-            if xbmcvfs.exists(self._db_file):
-                self.kodi_log(f'CACHE: Deleting Corrupt File: {self._db_file}...', 1)
-                xbmcvfs.delete(self._db_file)
-            try:
-                self.kodi_log(f'CACHE: Initialising: {self._db_file}...', 1)
-                connection = self._connection or sqlite3.connect(self._db_file, timeout=2.0, isolation_level=None, check_same_thread=not self._re_use_con)
-                connection.execute(
-                    """CREATE TABLE IF NOT EXISTS simplecache(
-                    id TEXT UNIQUE, expires INTEGER, data TEXT, checksum INTEGER)""")
-                connection.execute("CREATE INDEX idx ON simplecache(id)")
-                return self._set_pragmas(connection)
-            except Exception as error:
-                self.kodi_log(f'CACHE: Exception while initializing _database: {error} ({attempts})\n{self._sc_name}', 1)
-                if attempts < 1:
-                    return
-                attempts -= 1
-                self._monitor.waitForAbort(1)
-                return self._get_database(attempts)
+        except Exception as error:
+            self.kodi_log(f'CACHE: ERROR while retrieving _database: {error}\n{self._sc_name}', 1)
 
-    def _execute_sql(self, query, data=None):
+    def _execute_sql(self, query, data=None, read_only=False):
         '''little wrapper around execute and executemany to just retry a db command if db is locked'''
-        retries = self._retries
-
         def _database_execute(_database):
             if not data:
                 return _database.execute(query)
@@ -266,29 +273,13 @@ class SimpleCache(object):
             return _database.execute(query, data)
 
         # always use new db object because we need to be sure that data is available for other simplecache instances
-        error = None
-        with self._get_database() as _database:
-            while retries > 0 and not self._monitor.abortRequested():
-                if self._exit:
-                    return None
+        try:
+            with self._get_database(read_only=read_only) as _database:
                 try:
                     return _database_execute(_database)
-                except sqlite3.OperationalError as err:
-                    error = f'{err}'
-                except Exception as err:
-                    error = f'{err}'
-                if error is None:
-                    continue
-                if error != 'database is locked':
-                    break
-                retries = retries - 1
-                if retries > 0:
-                    log_level = 1 if retries < self._retries - 1 else 2  # Only debug log for first retry
-                    transaction = 'commit' if data else 'lookup'
-                    self.kodi_log(f'CACHE: _database LOCKED -- Retrying DB {transaction}...\n{self._sc_name}', log_level)
-                    self._monitor.waitForAbort(self._retry_polling)
-                    continue
-                error = 'Retry failed. Database locked.'
-        if error not in [None, 'not an error']:
-            self.kodi_log(f'CACHE: _database ERROR! -- {error}\n{self._sc_name}', 1)
-        return None
+                except sqlite3.OperationalError as operational_exception:
+                    self.kodi_log(f'CACHE: _database OPERATIONAL ERROR! -- {operational_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
+                except Exception as other_exception:
+                    self.kodi_log(f'CACHE: _database OTHER ERROR! -- {other_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
+        except Exception as database_exception:
+            self.kodi_log(f'CACHE: _database GET DATABASE ERROR! -- {database_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
