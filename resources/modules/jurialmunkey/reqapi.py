@@ -1,3 +1,5 @@
+import requests
+
 from xbmc import getCondVisibility
 from xbmcgui import Dialog
 
@@ -83,6 +85,8 @@ class RequestAPI(object):
         self._cache = self._basiccache(filename=f'{req_api_name or "requests"}.db')
         self._error_notification = error_notification or self.error_notification
         self.translate_xml = translate_xml
+        self.session = requests.Session()
+        self.session.mount(self.req_api_url, requests.adapters.HTTPAdapter(pool_maxsize=100))
 
     @staticmethod
     def kodi_log(msg, level=0):
@@ -155,17 +159,16 @@ class RequestAPI(object):
         get_property(self.req_timeout_err_prop, self.req_timeout_err)
 
     def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
-        import requests
         try:
             if method == 'delete':
-                return requests.delete(request, headers=headers, timeout=self.timeout)
+                return self.session.delete(request, headers=headers, timeout=self.timeout)
             if method == 'put':
-                return requests.put(request, data=postdata, headers=headers, timeout=self.timeout)
+                return self.session.put(request, data=postdata, headers=headers, timeout=self.timeout)
             if method == 'json':
-                return requests.post(request, json=postdata, headers=headers, timeout=self.timeout)
+                return self.session.post(request, json=postdata, headers=headers, timeout=self.timeout)
             if postdata or method == 'post':  # If pass postdata assume we want to post
-                return requests.post(request, data=postdata, headers=headers, timeout=self.timeout)
-            return requests.get(request, headers=headers, timeout=self.timeout)
+                return self.session.post(request, data=postdata, headers=headers, timeout=self.timeout)
+            return self.session.get(request, headers=headers, timeout=self.timeout)
         except requests.exceptions.ConnectionError as errc:
             self.connection_error(errc, check_status=True)
         except requests.exceptions.Timeout as errt:
