@@ -64,11 +64,7 @@ class SimpleCache(object):
 
     def __del__(self):
         '''make sure close is called'''
-        if self._queue:
-            self.kodi_log(f'CACHE: Write {len(self._queue)} Items in Queue\n{self._sc_name}', 2)
-        for i in self._queue:
-            self._set_db_cache(*i)
-        self._queue = []
+        self.write_queue()
         self.close()
 
     @contextmanager
@@ -78,6 +74,15 @@ class SimpleCache(object):
             yield
         finally:
             self._busy_tasks.remove(task_name)
+
+    def write_queue(self):
+        if not self._queue:
+            return
+        with self.busy_tasks(f'write.queue'):
+            self.kodi_log(f'CACHE: Write {len(self._queue)} Items in Queue\n{self._sc_name}', 2)
+            for i in self._queue:
+                self._set_db_cache(*i)
+            self._queue = []
 
     def get(self, endpoint, cur_time=None):
         '''
@@ -94,6 +99,9 @@ class SimpleCache(object):
             expires = set_timestamp(cache_days * TIME_DAYS, True)
             data = data_dumps(data, separators=(',', ':'))
             self._set_mem_cache(endpoint, expires, data)
+            if self._memcache:
+                self._queue.append((endpoint, expires, data, ))
+                return
             self._set_db_cache(endpoint, expires, data)
 
     def check_cleanup(self):
@@ -278,8 +286,8 @@ class SimpleCache(object):
                 try:
                     return _database_execute(_database)
                 except sqlite3.OperationalError as operational_exception:
-                    self.kodi_log(f'CACHE: _database OPERATIONAL ERROR! -- {operational_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
+                    self.kodi_log(f'CACHE: _database OPERATIONAL ERROR! -- {operational_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
                 except Exception as other_exception:
-                    self.kodi_log(f'CACHE: _database OTHER ERROR! -- {other_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
+                    self.kodi_log(f'CACHE: _database OTHER ERROR! -- {other_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
         except Exception as database_exception:
-            self.kodi_log(f'CACHE: _database GET DATABASE ERROR! -- {database_exception}\n{self._sc_name} -- read_only: {read_only}', 1)
+            self.kodi_log(f'CACHE: _database GET DATABASE ERROR! -- {database_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
