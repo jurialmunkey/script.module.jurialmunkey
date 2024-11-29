@@ -6,7 +6,7 @@ import jurialmunkey.scache
 
 class BasicCache():
     _simplecache = jurialmunkey.scache.SimpleCache
-    _queue_limit = 500
+    _queue_limit = 20
 
     def __init__(self, filename=None):
         self._filename = filename
