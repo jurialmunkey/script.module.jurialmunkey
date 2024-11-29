@@ -1,5 +1,3 @@
-import requests
-
 from xbmc import getCondVisibility
 from xbmcgui import Dialog
 
@@ -85,8 +83,24 @@ class RequestAPI(object):
         self._cache = self._basiccache(filename=f'{req_api_name or "requests"}.db')
         self._error_notification = error_notification or self.error_notification
         self.translate_xml = translate_xml
-        self.session = requests.Session()
-        self.session.mount(self.req_api_url, requests.adapters.HTTPAdapter(pool_maxsize=100))
+
+    @property
+    def requests(self):
+        try:
+            return self._requests
+        except AttributeError:
+            import requests
+            self._requests = requests
+            return self._requests
+
+    @property
+    def session(self):
+        try:
+            return self._session
+        except AttributeError:
+            self._session = self.requests.Session()
+            self._session.mount(self.req_api_url, self.requests.adapters.HTTPAdapter(pool_maxsize=100))
+            return self._session
 
     @staticmethod
     def kodi_log(msg, level=0):
@@ -169,9 +183,9 @@ class RequestAPI(object):
             if postdata or method == 'post':  # If pass postdata assume we want to post
                 return self.session.post(request, data=postdata, headers=headers, timeout=self.timeout)
             return self.session.get(request, headers=headers, timeout=self.timeout)
-        except requests.exceptions.ConnectionError as errc:
+        except self.requests.exceptions.ConnectionError as errc:
             self.connection_error(errc, check_status=True)
-        except requests.exceptions.Timeout as errt:
+        except self.requests.exceptions.Timeout as errt:
             self.timeout_error(errt)
         except Exception as err:
             self.kodi_log(f'RequestError: {err}', 1)
