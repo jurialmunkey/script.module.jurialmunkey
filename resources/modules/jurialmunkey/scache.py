@@ -33,7 +33,7 @@ class SimpleCache(object):
     _fileutils = FILEUTILS
     _db_timeout = 3.0
     _db_read_timeout = 1.0
-    _queue_limit = 250
+    _queue_limit = 20
 
     def __init__(self, folder=None, filename=None):
         '''Initialize our caching class'''
