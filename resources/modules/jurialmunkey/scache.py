@@ -33,6 +33,7 @@ class SimpleCache(object):
     _fileutils = FILEUTILS
     _db_timeout = 3.0
     _db_read_timeout = 1.0
+    _queue_limit = 250
 
     def __init__(self, folder=None, filename=None):
         '''Initialize our caching class'''
@@ -78,11 +79,14 @@ class SimpleCache(object):
     def write_queue(self):
         if not self._queue:
             return
+
+        items = [i for i in self._queue]
+        self._queue = []
+
         with self.busy_tasks(f'write.queue'):
-            self.kodi_log(f'CACHE: Write {len(self._queue)} Items in Queue\n{self._sc_name}', 2)
-            for i in self._queue:
+            self.kodi_log(f'CACHE: Write {len(items)} Items in Queue\n{self._sc_name}', 2)
+            for i in items:
                 self._set_db_cache(*i)
-            self._queue = []
 
     def get(self, endpoint, cur_time=None):
         '''
@@ -99,10 +103,10 @@ class SimpleCache(object):
             expires = set_timestamp(cache_days * TIME_DAYS, True)
             data = data_dumps(data, separators=(',', ':'))
             self._set_mem_cache(endpoint, expires, data)
-            if self._memcache:
-                self._queue.append((endpoint, expires, data, ))
+            self._queue.append((endpoint, expires, data, ))
+            if self._memcache and len(self._queue) < self._queue_limit:
                 return
-            self._set_db_cache(endpoint, expires, data)
+            self.write_queue()
 
     def check_cleanup(self):
         '''check if cleanup is needed - public method, may be called by calling addon'''
