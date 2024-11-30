@@ -155,26 +155,54 @@ class SimpleCache(object):
 
     def _get_db_cache(self, endpoint, cur_time):
         '''get cache data from sqllite _database'''
-        result = None
         query = "SELECT expires, data, checksum FROM simplecache WHERE id = ? LIMIT 1"
         cache_data = self._execute_sql(query, (endpoint,), read_only=True)
+
         if not cache_data:
             return
+
         cache_data = cache_data.fetchone()
-        if not cache_data or int(cache_data[0]) <= cur_time:
+
+        if not cache_data:
             return
+
         try:
-            data = str(zlib.decompress(cache_data[1]), 'utf-8')
+            expires = int(cache_data[0])  # Check we can convert expiry to int otherwise assume has expired.
+            data = cache_data[1]  # Check that we can get data from cache otherwise return None.
         except TypeError:
-            data = cache_data[1]
+            return
+
+        if expires <= cur_time:
+            return
+
+        try:
+            data = str(zlib.decompress(data), 'utf-8')
+        # This code block checking for TypeError was in legacy but seems wrong? Type should be consistent.
+        # zlib complaining about TypeError would indicate an issue with returned data -- treat as expired.
+        # except TypeError:
+        #     data = cache_data[1]
+        except Exception as error:
+            self.kodi_log(f'CACHE: _get_db_cache zlib.decompress error: {error}\n{self._sc_name} - {endpoint}', 1)
+            return
+
+        try:
+            result = data_loads(data)  # Confirm that data is valid JSON
+        except Exception as error:
+            self.kodi_log(f'CACHE: _get_db_cache data_loads error: {error}\n{self._sc_name} - {endpoint}', 1)
+            return
+
         self._set_mem_cache(endpoint, cache_data[0], data)
-        result = data_loads(data)
+
         return result
 
     def _set_db_cache(self, endpoint, expires, data):
         ''' store cache data in _database '''
         query = "INSERT OR REPLACE INTO simplecache( id, expires, data, checksum) VALUES (?, ?, ?, ?)"
-        data = zlib.compress(bytes(data, 'utf-8'))
+        try:
+            data = zlib.compress(bytes(data, 'utf-8'))
+        except Exception as error:
+            self.kodi_log(f'CACHE: _set_db_cache zlib.compress error: {error}\n{self._sc_name} - {endpoint}', 1)
+            return
         self._execute_sql(query, (endpoint, expires, data, 0))
 
     def _do_delete(self):
