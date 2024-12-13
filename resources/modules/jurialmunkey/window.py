@@ -214,26 +214,6 @@ class WindowChecker():
         self._current_window = get_current_window()
         return self._current_window
 
-    def get_xbmcgui_current_window(self):
-        if not self.current_window:
-            return
-        try:
-            window = xbmcgui.Window(self.current_window)
-        except RuntimeError:
-            return
-        self._xbmcgui_current_window = window
-        return self._xbmcgui_current_window
-
-    @property
-    def xbmcgui_current_window(self):
-        if self.previous_window == self.current_window:
-            try:
-                return self._xbmcgui_current_window
-            except AttributeError:
-                return self.get_xbmcgui_current_window()
-        self._previous_window = self.current_window
-        return self.get_xbmcgui_current_window()
-
     def is_current_window_xml(self, values):
         for i in values:
             if self.current_window in self.window_xml(i):
@@ -241,7 +221,10 @@ class WindowChecker():
         return False
 
     def get_window_property(self, key, is_type=None, is_home=False):
-        window = self.xbmcgui_home_window if is_home else self.xbmcgui_current_window
+        try:
+            window = self.xbmcgui_home_window if is_home else xbmcgui.Window(self.current_window)
+        except RuntimeError:
+            return
         if not window:
             return
         return try_type(window.getProperty(f'TMDbHelper.{key}'), is_type or str)
