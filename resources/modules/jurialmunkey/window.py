@@ -148,18 +148,19 @@ WINDOW_IDS = {
 
 
 def get_key_index(dictionary, key, idx):
-    key = key.lower()
-    if key in dictionary:
+    key_lower = key.lower()
+    if key_lower in dictionary:
+        dictionary[key] = dictionary[key_lower]
         return dictionary[key]
 
     collection = []
     collection_append = collection.append
     for k, v in WINDOW_IDS.items():
-        if key != v[idx].lower():
+        if key_lower != v[idx].lower():
             continue
         collection_append(k)
 
-    dictionary[key] = tuple(collection)
+    dictionary[key] = dictionary[key_lower] = tuple(collection)
     return dictionary[key]
 
 
