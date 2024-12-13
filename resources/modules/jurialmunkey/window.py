@@ -61,7 +61,6 @@ def wait_for_property(name, value=None, set_property=False, poll=1, timeout=10):
             and not _property_is_value(name, value)):
         xbmc_monitor.waitForAbort(poll)
         timeout -= poll
-    del xbmc_monitor
     if timeout > 0:
         return True
 
@@ -110,8 +109,6 @@ def wait_until_active(window_id, instance_id=None, poll=1, timeout=30, invert=Fa
             and _is_base_active(instance_id)):
         _xbmc_monitor.waitForAbort(poll)
         timeout -= poll
-    if not xbmc_monitor:
-        del _xbmc_monitor
     if timeout > 0 and _is_base_active(instance_id):
         return window_id
 
@@ -128,8 +125,6 @@ def wait_until_updated(container_id=9999, instance_id=None, poll=1, timeout=60, 
             and _is_base_active(instance_id)):
         _xbmc_monitor.waitForAbort(poll)
         timeout -= poll
-    if not xbmc_monitor:
-        del _xbmc_monitor
     if timeout > 0 and _is_base_active(instance_id):
         return container_id
 
