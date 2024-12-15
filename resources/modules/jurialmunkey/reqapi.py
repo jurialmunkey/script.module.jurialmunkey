@@ -107,9 +107,9 @@ class RequestAPI(object):
         from jurialmunkey.logger import Logger
         Logger('[script.module.jurialmunkey]\n').kodi_log(msg, level)
 
-    def do_error_notification(self, log_msg, note_head, note_body):
+    def do_error_notification(self, log_msg, note_head, note_body, notification=True):
         self.kodi_log(log_msg, 1)
-        if not self._error_notification:
+        if not self._error_notification or not notification:
             return
         Dialog().notification(note_head, note_body)
 
@@ -139,7 +139,7 @@ class RequestAPI(object):
         # Update our last error timestamp and return it
         return get_property(err_prop, set_timestamp(log_time))
 
-    def connection_error(self, err, wait_time=30, msg_affix='', check_status=False):
+    def connection_error(self, err, wait_time=15, msg_affix='', check_status=False):
         self.req_connect_err = set_timestamp(wait_time)
         get_property(self.req_connect_err_prop, self.req_connect_err)
 
@@ -149,7 +149,8 @@ class RequestAPI(object):
         self.do_error_notification(
             f'ConnectionError: {msg_affix} {err}\nSuppressing retries for {wait_time} seconds',
             get_localized(32002).format(' '.join([self.req_api_name, msg_affix])),
-            get_localized(32001).format(f'{wait_time}'))
+            get_localized(32001).format(f'{wait_time}'),
+            notification='ConnectionResetError' not in f'{err}')
 
     def fivehundred_error(self, request, wait_time=60):
         from json import dumps
