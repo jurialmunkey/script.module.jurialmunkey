@@ -1,4 +1,4 @@
-from xbmc import getCondVisibility
+from xbmc import getCondVisibility, Monitor
 from xbmcgui import Dialog
 
 from jurialmunkey.parser import try_int
@@ -62,8 +62,49 @@ def json_loads(obj):
     return loads(obj)
 
 
+class MaxRetries():
+
+    def __init__(self, connect=0, backoff_factor=0.1, expiry_timeout=120):
+        self.expiry_timeout = expiry_timeout  # Discard previous exceptions after seconds
+        self.backoff_factor = backoff_factor  # Backoff to wait for retry after x seconds
+        self.connect = self.create_dict(connect)
+
+    def create_dict(self, max_retries):
+        return {'max_retries': max_retries, 'previous_exceptions': {}, 'expiry': 0}
+
+    @staticmethod
+    def _reset_exceptions(attr, req):
+        attr['previous_exceptions'][req] = []
+
+    def get_exceptions(self, key, req, reset=False):
+        attr = getattr(self, key)
+
+        previous_exceptions = attr['previous_exceptions'].get(req) or []
+        self._reset_exceptions(attr, req) if reset else None  # Reset exception history for this request (useful when logging after retry failure and will want to reset retries after cooldown)
+
+        return previous_exceptions
+
+    def allow_retry(self, key, req, exc):
+        attr = getattr(self, key)
+
+        if not get_timestamp(attr['expiry']):
+            attr['previous_exceptions'] = {}  # Havent had this exception type in a while so discard previous history
+
+        attr['expiry'] = set_timestamp(self.expiry_timeout)
+        attr['previous_exceptions'].setdefault(req, []).append(exc)
+
+        if not attr['max_retries']:
+            return False
+        if len(attr['previous_exceptions'][req]) > attr['max_retries']:
+            return False
+
+        Monitor().waitForAbort(self.backoff_factor)
+        return True
+
+
 class RequestAPI(object):
     error_notification = None
+    max_retries = MaxRetries(connect=1)
     _basiccache = BasicCache
 
     def __init__(self, req_api_url=None, req_api_key=None, req_api_name=None, timeout=None, error_notification=None):
@@ -185,7 +226,9 @@ class RequestAPI(object):
                 return self.session.post(request, data=postdata, headers=headers, timeout=self.timeout)
             return self.session.get(request, headers=headers, timeout=self.timeout)
         except self.requests.exceptions.ConnectionError as errc:
-            self.connection_error(errc, check_status=True)
+            if self.max_retries.allow_retry('connect', request, errc):
+                return self.get_simple_api_request(request=request, postdata=postdata, headers=headers, method=method)
+            self.connection_error(self.max_retries.get_exceptions('connect', request, reset=True), check_status=True)
         except self.requests.exceptions.Timeout as errt:
             self.timeout_error(errt)
         except Exception as err:
