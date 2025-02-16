@@ -261,6 +261,27 @@ def set_to_windowprop(text, x, window_prop, window_id=None):
     xbmc.executebuiltin(f'SetProperty({window_prop}.{x},{text}{f",{window_id}" if window_id else ""})')
 
 
+def clear_windowprops(window_prop, window_id=None, keys_prop=None, keys=None):
+    if not window_prop:
+        return
+
+    # Default properties
+    xbmc.executebuiltin(f'ClearProperty({window_prop}{f",{window_id}" if window_id else ""})')
+    xbmc.executebuiltin(f'ClearProperty({window_prop}.0{f",{window_id}" if window_id else ""})')
+
+    # Special property with list of keys for the properties that were set
+    if keys_prop is not None:
+        keys = xbmc.getInfoLabel(f'Window({window_id if window_id else ""}).Property({window_prop}.{keys_prop})') or ''
+        keys = keys.split('||')
+        xbmc.executebuiltin(f'ClearProperty({window_prop}.{keys_prop}{f",{window_id}" if window_id else ""})')
+
+    if not keys:
+        return
+
+    for key in keys:
+        xbmc.executebuiltin(f'ClearProperty({window_prop}.{key}{f",{window_id}" if window_id else ""})')
+
+
 def _property_is_value(name, value):
     if not value and not get_property(name):
         return True
