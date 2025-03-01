@@ -29,6 +29,7 @@ INFOLABEL_MAP = {
     "country": "country",
     "premiered": "premiered",
     "set": "set",
+    "setid": "setid",
     "top250": "top250",
     "votes": "votes",
     "firstaired": "aired",
