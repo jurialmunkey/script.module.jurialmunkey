@@ -45,7 +45,7 @@ class SimpleCache(object):
         self._monitor = Monitor()
         self._db_file = self._fileutils.get_file_path(basefolder, filename, join_addon_data=basefolder == folder)
         self._sc_name = f'{folder}_{filename}_simplecache'
-        self._queue = []
+        self._queue = {}
         self._re_use_con = True
         self._connection = None
         self.check_cleanup()
@@ -67,7 +67,7 @@ class SimpleCache(object):
 
     def __del__(self):
         '''make sure close is called'''
-        self.write_queue()
+        self.write()
         self.close()
 
     @contextmanager
@@ -78,12 +78,12 @@ class SimpleCache(object):
         finally:
             self._busy_tasks.remove(task_name)
 
-    def write_queue(self):
+    def write(self):
         if not self._queue:
             return
 
-        items = [i for i in self._queue]
-        self._queue = []
+        items = [i for _, i in self._queue.items()]
+        self._queue = {}
 
         with self.busy_tasks(f'write.queue'):
             self.kodi_log(f'CACHE: Write {len(items)} Items in Queue\n{self._sc_name}', 2)
@@ -96,19 +96,25 @@ class SimpleCache(object):
             endpoint: the (unique) name of the cache object as reference
         '''
         cur_time = cur_time or set_timestamp(0, True)
-        result = self._get_mem_cache(endpoint, cur_time)  # Try from memory first
-        return result or self._get_db_cache(endpoint, cur_time)  # Fallback to checking database if not in memory
+        result = self._get_queue(endpoint)  # Try from memory first
+        result = result or self._get_mem_cache(endpoint, cur_time)  # Try from memory first
+        result = result or self._get_db_cache(endpoint, cur_time)  # Fallback to checking database if not in memory
+        return result
 
     def set(self, endpoint, data, cache_days=30):
         """ set data in cache """
         with self.busy_tasks(f'set.{endpoint}'):
+
             expires = set_timestamp(cache_days * TIME_DAYS, True)
             data = data_dumps(data, separators=(',', ':'))
+
+            self._set_queue(endpoint, expires, data)
             self._set_mem_cache(endpoint, expires, data)
-            self._queue.append((endpoint, expires, data, ))
-            if self._memcache and len(self._queue) < self._queue_limit:
+
+            if len(self._queue) < self._queue_limit:
                 return
-            self.write_queue()
+
+            self.write()
 
     def check_cleanup(self):
         '''check if cleanup is needed - public method, may be called by calling addon'''
@@ -121,6 +127,16 @@ class SimpleCache(object):
         cur_time = set_timestamp(0, True)
         if (int(lastexecuted) + self._auto_clean_interval) < cur_time:
             self._do_cleanup()
+
+    def _get_queue(self, endpoint):
+        if endpoint not in self._queue:
+            return
+        return data_loads(self._queue[endpoint][0])
+
+    def _set_queue(self, endpoint, expires, data):
+        if not self._queue_limit:
+            return
+        self._queue[endpoint] = (endpoint, expires, data, )
 
     def _get_mem_cache(self, endpoint, cur_time):
         '''
@@ -151,8 +167,10 @@ class SimpleCache(object):
         '''
         if not self._memcache:
             return
+
         expr_endpoint = f'{self._sc_name}_expr_{endpoint}'
         data_endpoint = f'{self._sc_name}_data_{endpoint}'
+
         self._win.setProperty(expr_endpoint, str(expires))
         self._win.setProperty(data_endpoint, data)
 
@@ -180,10 +198,6 @@ class SimpleCache(object):
 
         try:
             data = str(zlib.decompress(data), 'utf-8')
-        # This code block checking for TypeError was in legacy but seems wrong? Type should be consistent.
-        # zlib complaining about TypeError would indicate an issue with returned data -- treat as expired.
-        # except TypeError:
-        #     data = cache_data[1]
         except Exception as error:
             self.kodi_log(f'CACHE: _get_db_cache zlib.decompress error: {error}\n{self._sc_name} - {endpoint}', 1)
             return
