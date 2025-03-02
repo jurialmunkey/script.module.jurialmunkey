@@ -235,32 +235,34 @@ class SimpleCache(object):
         if self._win.getProperty(f'{self._sc_name}.cleanbusy'):
             return
 
-        self._win.setProperty(f'{self._sc_name}.cleanbusy', "busy")
-        self.kodi_log(f"CACHE: Running cleanup...\n{self._sc_name}", 1)
+        with MutexFileLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
+            self._win.setProperty(f'{self._sc_name}.cleanbusy', "busy")
+            self.kodi_log(f"CACHE: Running cleanup...\n{self._sc_name}", 1)
 
-        with self.busy_tasks(__name__):
-            cur_time = set_timestamp(0, True)
-            query = "SELECT id, expires FROM simplecache"
-            for cache_data in self._execute_sql(query).fetchall():
-                if self._exit or self._monitor.abortRequested():
-                    return
-                cache_id = cache_data[0]
-                cache_expires = cache_data[1]
-                # always cleanup all memory objects on each interval
-                self._win.clearProperty(cache_id)
-                # clean up db cache object only if expired
-                if not force and int(cache_expires) >= cur_time:
-                    continue
-                query = 'DELETE FROM simplecache WHERE id = ?'
-                self._execute_sql(query, (cache_id,))
-                self.kodi_log(f'CACHE: delete from db {cache_id}')
+            with self.busy_tasks(__name__):
+                cur_time = set_timestamp(0, True)
+                query = "SELECT id, expires FROM simplecache"
+                for cache_data in self._execute_sql(query).fetchall():
+                    if self._exit or self._monitor.abortRequested():
+                        return
+                    cache_id = cache_data[0]
+                    cache_expires = cache_data[1]
+                    # always cleanup all memory objects on each interval
+                    self._win.clearProperty(cache_id)
+                    # clean up db cache object only if expired
+                    if not force and int(cache_expires) >= cur_time:
+                        continue
+                    query = 'DELETE FROM simplecache WHERE id = ?'
+                    self._execute_sql(query, (cache_id,))
+                    self.kodi_log(f'CACHE: delete from db {cache_id}')
 
-            # compact db
-            self._execute_sql("VACUUM")
+                # compact db
+                self._execute_sql("VACUUM")
 
-        # Washup
-        self._win.setProperty(f'{self._sc_name}.clean.lastexecuted', str(cur_time))
-        self._win.clearProperty(f'{self._sc_name}.cleanbusy')
+            # Washup
+            self._win.setProperty(f'{self._sc_name}.clean.lastexecuted', str(cur_time))
+            self._win.clearProperty(f'{self._sc_name}.cleanbusy')
+
         self.kodi_log(f"CACHE: Cleanup complete...\n{self._sc_name}", 1)
 
     def _set_pragmas(self, connection):
@@ -272,7 +274,7 @@ class SimpleCache(object):
         return connection
 
     def _init_database(self):
-        with MutexFileLock(f'{self._db_file}.lockprop', kodi_log=self.kodi_log):
+        with MutexFileLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
             if xbmcvfs.exists(self._db_file):
                 return
             database = self._create_database()
