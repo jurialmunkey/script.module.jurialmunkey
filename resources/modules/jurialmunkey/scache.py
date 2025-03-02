@@ -5,6 +5,7 @@ import xbmcvfs
 from xbmcgui import Window
 from xbmc import Monitor, sleep
 from contextlib import contextmanager
+from jurialmunkey.locker import MutexFileLock
 from jurialmunkey.tmdate import set_timestamp
 from jurialmunkey.futils import FileUtils
 from jurialmunkey.futils import json_loads as data_loads
@@ -48,6 +49,7 @@ class SimpleCache(object):
         self._re_use_con = True
         self._connection = None
         self.check_cleanup()
+
         self.kodi_log("CACHE: Initialized")
 
     @staticmethod
@@ -110,12 +112,13 @@ class SimpleCache(object):
 
     def check_cleanup(self):
         '''check if cleanup is needed - public method, may be called by calling addon'''
-        cur_time = set_timestamp(0, True)
         lastexecuted = self._win.getProperty(f'{self._sc_name}.clean.lastexecuted')
+
         if not lastexecuted:
-            self._win.setProperty(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
             self._init_database()
             return
+
+        cur_time = set_timestamp(0, True)
         if (int(lastexecuted) + self._auto_clean_interval) < cur_time:
             self._do_cleanup()
 
@@ -269,11 +272,13 @@ class SimpleCache(object):
         return connection
 
     def _init_database(self):
-        if xbmcvfs.exists(self._db_file):
-            return
-            # self.kodi_log(f'CACHE: Deleting Corrupt File: {self._db_file}...', 1)
-            # xbmcvfs.delete(self._db_file)
-        return self._create_database()
+        with MutexFileLock(f'{self._db_file}.lockprop', kodi_log=self.kodi_log):
+            if xbmcvfs.exists(self._db_file):
+                return
+            database = self._create_database()
+            cur_time = set_timestamp(0, True)
+            self._win.setProperty(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
+        return database
 
     def _create_database(self):
         try:

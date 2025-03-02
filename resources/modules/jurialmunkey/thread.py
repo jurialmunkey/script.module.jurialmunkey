@@ -1,4 +1,4 @@
-from xbmc import Monitor
+import xbmc
 from threading import Thread
 
 
@@ -12,7 +12,7 @@ class ParallelThread():
             item_queue = pt.queue
         item_queue[x]  # to get returned items
         """
-        self._mon = Monitor()
+        self._mon = xbmc.Monitor()
         thread_max = self.thread_max or len(items)
         self.queue = [None] * len(items)
         self._pool = [None] * thread_max
