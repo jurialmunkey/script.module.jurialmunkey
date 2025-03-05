@@ -34,7 +34,7 @@ JSON_RPC_LOOKUPS = {
     'tvshowid': {
         'method': "VideoLibrary.GetTVShowDetails",
         'properties': [
-            "file", "title", "plot", "playcount", "year", "lastplayed", "premiered", "originaltitle", "watchedepisodes", "dateadded", "userrating", "rating", "votes",
+            "file", "title", "plot", "playcount", "year", "lastplayed", "premiered", "originaltitle", "watchedepisodes", "dateadded", "userrating", "rating", "votes", "mpaa", "season", "episode",
             "genre", "studio", "cast",
             "fanart", "thumbnail", "art", "ratings", "uniqueid"],
         'key': "tvshowdetails",
