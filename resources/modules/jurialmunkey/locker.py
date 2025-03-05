@@ -40,11 +40,6 @@ class MutexFileLock():
     def lock_exists(self):
         if xbmcvfs.exists(self._lockfile):
             return self._lockfile
-        # data = None
-        # with xbmcvfs.File(self._lockfile, 'r') as f:
-        #     data = f.read()
-        # if data == 'locked':
-        #     return self._lockfile
 
     def create_lock(self):
         if self.lock_exists():
