@@ -38,7 +38,7 @@ INFOLABEL_MAP = {
     "showtitle": "tvshowtitle",
     "sorttitle": "sorttitle",
     "episodeguide": "episodeguide",
-    "dateadded": "date",
+    "dateadded": "dateadded",
     "id": "dbid",
     "songvideourl": "songvideourl",
 }
