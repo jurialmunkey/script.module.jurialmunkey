@@ -354,7 +354,7 @@ class SimpleCache(object):
         '''get reference to our sqllite _database - performs basic integrity check'''
         timeout = self._db_read_timeout if read_only else self._db_timeout
         try:
-            connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None)
+            connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None, check_same_thread=False)
             connection.execute('SELECT * FROM simplecache LIMIT 1')
             return self._set_pragmas(connection)
         except Exception as error:
