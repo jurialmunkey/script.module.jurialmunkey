@@ -40,7 +40,6 @@ class SimpleCache(object):
     _db_timeout = 3.0
     _db_read_timeout = 1.0
     _queue_limit = 100
-    _connections = []
 
     def __init__(self, folder=None, filename=None):
         '''Initialize our caching class'''
@@ -96,9 +95,6 @@ class SimpleCache(object):
         # wait for all tasks to complete
         while self._busy_tasks and not self.monitor.abortRequested():
             self.monitor.waitForAbort(0.25)
-
-        for con in self._connections:
-            con.close()
 
         self.kodi_log(f'CACHE: Closed {self._sc_name}', 2)
 
@@ -354,7 +350,7 @@ class SimpleCache(object):
         '''get reference to our sqllite _database - performs basic integrity check'''
         timeout = self._db_read_timeout if read_only else self._db_timeout
         try:
-            connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None, check_same_thread=False)
+            connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None)
             connection.execute('SELECT * FROM simplecache LIMIT 1')
             return self._set_pragmas(connection)
         except Exception as error:
@@ -378,7 +374,6 @@ class SimpleCache(object):
         # always use new db object because we need to be sure that data is available for other simplecache instances
         try:
             with self._get_database(read_only=read_only) as database:
-                self._connections.append(database)
                 return database_execute(database)
 
         except Exception as database_exception:
