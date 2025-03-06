@@ -31,8 +31,9 @@ class ParallelThread():
                     if n >= thread_max:
                         self._mon.waitForAbort(0.025)
                 try:
-                    self._pool[n] = Thread(target=self._threadwrapper, args=[x, i, func, *args], kwargs=kwargs)
-                    self._pool[n].start()
+                    t = Thread(target=self._threadwrapper, args=[x, i, func, *args], kwargs=kwargs)
+                    t.start()
+                    self._pool[n] = t  # Only add thread to pool if it successfully starts
                 except IndexError:
                     self.kodi_log(f'ParallelThread: INDEX {n} OUT OF RANGE {thread_max}', 1)
                 except RuntimeError as exc:
