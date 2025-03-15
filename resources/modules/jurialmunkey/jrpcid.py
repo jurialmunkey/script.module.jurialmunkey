@@ -260,9 +260,6 @@ class ListItemMaker():
             self.infoproperties[f'{key}.collection'] = ' / '.join(sorted(value))
             self.infoproperties[f'{key}.collection.count'] = f'{len(value)}'
 
-        self.listitem.setProperties(self.infoproperties)
-        self.listitem.setArt(self.artwork)
-
         if self.library == 'video':
             self.infolabels.update({INFOLABEL_MAP[k]: v for k, v in self.meta.items() if v and k in INFOLABEL_MAP and v != -1})
             self.infolabels['dbid'] = self.dbid
@@ -270,6 +267,16 @@ class ListItemMaker():
             self.info_tag.set_info(self.infolabels)
             self.info_tag.set_unique_ids(self.meta.get('uniqueid') or {})
             self.info_tag.set_stream_details(self.meta.get('streamdetails') or {})
+
+        if self.dbtype in ('tvshow', 'season'):
+            self.infoproperties['totalepisodes'] = int(self.infolabels.get('episode') or 0)
+            self.infoproperties['unwatchedepisodes'] = int(self.infoproperties['totalepisodes']) - int(self.infoproperties.get('watchedepisodes') or 0)
+
+        if self.dbtype == 'tvshow':
+            self.infoproperties['totalseasons'] = int(self.infolabels.get('season') or 0)
+
+        self.listitem.setProperties(self.infoproperties)
+        self.listitem.setArt(self.artwork)
 
         return self.listitem
 
