@@ -26,7 +26,7 @@ JSON_RPC_LOOKUPS = {
     'movieid': {
         'method': "VideoLibrary.GetMovieDetails",
         'properties': [
-            "file", "title", "plot", "playcount", "year", "trailer", "tagline", "originaltitle", "mpaa", "runtime", "set", "setid", "lastplayed", "premiered", "dateadded", "userrating", "rating", "votes",
+            "file", "title", "plot", "playcount", "year", "trailer", "tagline", "originaltitle", "mpaa", "runtime", "set", "setid", "lastplayed", "premiered", "dateadded", "userrating", "rating", "votes", "top250",
             "genre", "director", "writer", "studio", "cast", "country",
             "fanart", "thumbnail", "art", "ratings", "uniqueid", "streamdetails"],
         'key': "moviedetails",
