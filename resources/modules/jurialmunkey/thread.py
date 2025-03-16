@@ -2,6 +2,26 @@ import xbmc
 from threading import Thread
 
 
+class SafeThread(Thread):
+    def __init__(self, target=None, args=None, kwargs=None):
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+        self._target = target
+        super().__init__(target=self._target, args=self._args, kwargs=self._kwargs)
+
+    def start(self):
+        self._success = True
+        try:
+            return super().start()
+        except RuntimeError:
+            self._success = False
+
+    def join(self, timeout=None):
+        if self._success:
+            return super().join(timeout=timeout)
+        return self._target(*self._args, **self._kwargs)
+
+
 class ParallelThread():
     thread_max = 0  # 0 is unlimited
 
