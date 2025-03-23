@@ -328,13 +328,21 @@ class SimpleCache(object):
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
         return database
 
+    @staticmethod
+    def create_database_execute(connection):
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS simplecache(
+                id TEXT UNIQUE,
+                expires INTEGER,
+                data TEXT,
+                checksum INTEGER
+            )""")
+
     def _create_database(self):
         try:
             self.kodi_log(f'CACHE: Initialising: {self._db_file}...', 1)
             connection = sqlite3.connect(self._db_file, timeout=5.0, isolation_level=None)
-            connection.execute(
-                """CREATE TABLE IF NOT EXISTS simplecache(
-                id TEXT UNIQUE, expires INTEGER, data TEXT, checksum INTEGER)""")
+            self.create_database_execute(connection)
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while initializing _database: {error}\n{self._sc_name}', 1)
         try:
