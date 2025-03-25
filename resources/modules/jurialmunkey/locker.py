@@ -1,23 +1,23 @@
-import xbmc
 import xbmcvfs
 from jurialmunkey.tmdate import get_timestamp, set_timestamp
 
 
-class MutexFileLock():
+class _MutextLock():
     def __init__(self, lockfile, timeout=10, polling=0.01, kodi_log=None):
         """ ContextManager for mutex lock """
         self._timeout = timeout
         self._polling = polling
         self._lockfile = lockfile
         self._kodi_log = kodi_log
-        self.aquire_lock()
+        self.lock_aquire()
 
     @property
     def monitor(self):
         try:
             return self._monitor
         except AttributeError:
-            self._monitor = xbmc.Monitor()
+            from xbmc import Monitor
+            self._monitor = Monitor()
             return self._monitor
 
     @property
@@ -38,25 +38,18 @@ class MutexFileLock():
             return self._time_exp
 
     def lock_exists(self):
-        if xbmcvfs.exists(self._lockfile):
-            return self._lockfile
+        return
 
-    def create_lock(self):
-        if self.lock_exists():
-            return
-        with xbmcvfs.File(self._lockfile, 'w') as f:
-            f.write('locked')
+    def lock_create(self):
         return self._lockfile
 
-    def delete_lock(self):
-        if not self.lock_exists():
-            return
-        xbmcvfs.delete(self._lockfile)
+    def lock_delete(self):
+        return
 
-    def aquire_lock(self):
+    def lock_aquire(self):
         # Aquire lock if available
-        if self.create_lock():
-            return
+        if not self.lock_exists():
+            return self.lock_create()
 
         # Early exit: System abort
         if self.monitor.abortRequested():
@@ -69,10 +62,52 @@ class MutexFileLock():
 
         # Wait in loop
         self.monitor.waitForAbort(self._polling)
-        return self.aquire_lock()
+        return self.lock_aquire()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.delete_lock()
+        self.lock_delete()
+
+
+class MutexFileLock(_MutextLock):
+
+    def lock_exists(self):
+        if xbmcvfs.exists(self._lockfile):
+            return self._lockfile
+
+    def lock_create(self):
+        with xbmcvfs.File(self._lockfile, 'w') as f:
+            f.write('locked')
+        return self._lockfile
+
+    def lock_delete(self):
+        if not self.lock_exists():
+            return
+        xbmcvfs.delete(self._lockfile)
+
+
+class MutexPropLock(_MutextLock):
+
+    @property
+    def window(self):
+        try:
+            return self._window
+        except AttributeError:
+            from jurialmunkey.window import WindowPropertySetter
+            self._window = WindowPropertySetter()
+            return self._window
+
+    def lock_exists(self):
+        if self.window.get_property(self._lockfile):
+            return self._lockfile
+
+    def lock_create(self):
+        self.window.get_property(self._lockfile, set_property='locked')
+        return self._lockfile
+
+    def lock_delete(self):
+        if not self.lock_exists():
+            return
+        self.window.get_property(self._lockfile, clear_property=True)
