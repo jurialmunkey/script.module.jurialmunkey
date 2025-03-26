@@ -375,42 +375,40 @@ class WindowProperty():
     def __init__(self, *args, prefix='TMDbHelper'):
         """ ContextManager for setting a WindowProperty over duration """
         self.property_pairs = args
+        self.window_property_setter = WindowPropertySetter()
         self.prefix = prefix
-        self.window = xbmcgui.Window(10000)
 
         for k, v in self.property_pairs:
             if not k or not v:
                 continue
-            self.window.setProperty(f'{self.prefix}.{k}', f'{v}')
+            self.window_property_setter.get_property(f'{k}', set_property=f'{v}', prefix=self.prefix)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         for k, v in self.property_pairs:
-            self.window.clearProperty(f'{self.prefix}.{k}')
+            self.window_property_setter.get_property(f'{k}', clear_property=True, prefix=self.prefix)
 
 
 class WindowPropertySetter():
-    @property
-    def property_window(self):
+    window_id = 10000
+
+    def get_window(self):
         try:
-            return self._property_window
-        except AttributeError:
-            import xbmcgui
-            try:
-                self._property_window = xbmcgui.Window(10000)
-            except RuntimeError:  # If window id does not exist
-                return
-            return self._property_window
+            return xbmcgui.Window(self.window_id)
+        except RuntimeError:
+            return
 
     def get_property(self, name, set_property=None, clear_property=False, is_type=None, prefix='TMDbHelper'):
-        if not self.property_window:
-            return
-        name = f'{prefix}.{name}'
-        ret_property = set_property or self.property_window.getProperty(name)
-        if clear_property:
-            self.property_window.clearProperty(name)
-        if set_property is not None:
-            self.property_window.setProperty(name, f'{set_property}')
+        _win = self.get_window()
+        try:
+            name = f'{prefix}.{name}'
+            ret_property = set_property or _win.getProperty(name)
+            if clear_property:
+                _win.clearProperty(name)
+            if set_property is not None:
+                _win.setProperty(name, f'{set_property}')
+        except AttributeError:  # In case no window returned
+            pass
         return try_type(ret_property, is_type or str)
