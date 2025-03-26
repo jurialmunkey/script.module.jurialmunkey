@@ -261,3 +261,20 @@ class IterProps():
             if x >= self._max_props:
                 break
         return infoproperties
+
+
+def LazyProperty(name):
+    name = f'_{name}'
+
+    def getter(self):
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            data = getattr(self, f'get{name}')()
+            setattr(self, name, data)
+            return data
+
+    def setter(self, value):
+        setattr(self, name, value)
+
+    return property(getter, setter)

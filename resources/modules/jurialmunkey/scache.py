@@ -82,7 +82,6 @@ class SimpleCache(object):
     def close(self):
         '''tell any tasks to stop immediately (as we can be called multithreaded) and cleanup objects'''
         self._exit = True
-        self.kodi_log(f'CACHE: Closed {self._sc_name}', 2)
 
     def __del__(self):
         '''make sure close is called'''
@@ -98,8 +97,6 @@ class SimpleCache(object):
 
         for i in items:
             self._set_db_cache(*i)
-
-        self.kodi_log(f'CACHE: Write {len(items)} Items in Queue\n{self._sc_name}', 2)
 
     def get(self, endpoint, cur_time=None):
         '''
@@ -295,9 +292,11 @@ class SimpleCache(object):
         return connection
 
     def _init_database(self):
-        if xbmcvfs.exists(self._db_file) and self._get_database(read_only=True, log_level=2):
-            return
+        # if xbmcvfs.exists(self._db_file) and self._get_database(read_only=True, log_level=2):
+        #     return
         with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
+            if xbmcvfs.exists(self._db_file):
+                return
             database = self._create_database()
             cur_time = set_timestamp(0, True)
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))

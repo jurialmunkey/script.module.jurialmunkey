@@ -3,7 +3,7 @@ from jurialmunkey.tmdate import get_timestamp, set_timestamp
 
 
 class _MutexLock():
-    def __init__(self, lockfile, timeout=10, polling=0.1, kodi_log=None):
+    def __init__(self, lockfile, timeout=10, polling=0.05, kodi_log=None):
         """ ContextManager for mutex lock """
         self._timeout = timeout
         self._polling = polling
