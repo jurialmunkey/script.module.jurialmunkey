@@ -278,3 +278,17 @@ def LazyProperty(name):
         setattr(self, name, value)
 
     return property(getter, setter)
+
+
+def LazyPropertyProtected(name):
+    name = f'_{name}'
+
+    def getter(self):
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            data = getattr(self, f'get{name}')()
+            setattr(self, name, data)
+            return data
+
+    return property(getter)
