@@ -53,6 +53,6 @@ def format_folderpath(path, content='videos', affix='return', info=None, play='P
     return f'ActivateWindow({content},{path},{affix})'
 
 
-def set_kwargattr(obj, kwargs):
+def setattr_kwargs(obj, kwargs):
     for k, v in kwargs.items():
         setattr(obj, k, v)
