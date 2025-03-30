@@ -184,18 +184,6 @@ class WindowChecker():
         return self.window_xml_dict[key] or tuple()
 
     @property
-    def xbmcgui_home_window(self):
-        try:
-            return self._xbmcgui_home_window
-        except AttributeError:
-            try:
-                window = xbmcgui.Window(10000)
-            except RuntimeError:
-                return
-            self._xbmcgui_home_window = window
-            return self._xbmcgui_home_window
-
-    @property
     def previous_window(self):
         try:
             return self._previous_window
@@ -222,7 +210,7 @@ class WindowChecker():
 
     def get_window_property(self, key, is_type=None, is_home=False):
         try:
-            window = self.xbmcgui_home_window if is_home else xbmcgui.Window(self.current_window)
+            window = xbmcgui.Window(10000) if is_home else xbmcgui.Window(self.current_window)
         except RuntimeError:
             return
         if not window:

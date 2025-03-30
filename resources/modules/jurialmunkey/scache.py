@@ -47,14 +47,6 @@ class SimpleCache(object):
         self.kodi_log(f"CACHE: Initialized: {self._sc_name} - Thread Safety Level: {sqlite3.threadsafety} - SQLite v{sqlite3.sqlite_version}")
 
     @property
-    def window(self):
-        try:
-            return self._window
-        except AttributeError:
-            self._window = Window(10000)
-            return self._window
-
-    @property
     def monitor(self):
         try:
             return self._monitor
@@ -63,13 +55,13 @@ class SimpleCache(object):
             return self._monitor
 
     def get_window_property(self, name):
-        return self.window.getProperty(name)
+        return Window(10000).getProperty(name)
 
     def set_window_property(self, name, value):
-        return self.window.setProperty(name, value)
+        return Window(10000).setProperty(name, value)
 
     def del_window_property(self, name):
-        return self.window.clearProperty(name)
+        return Window(10000).clearProperty(name)
 
     def exit_requested(self):
         return self._exit or self.monitor.abortRequested()
