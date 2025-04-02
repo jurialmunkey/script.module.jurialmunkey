@@ -284,8 +284,6 @@ class SimpleCache(object):
         return connection
 
     def _init_database(self):
-        # if xbmcvfs.exists(self._db_file) and self._get_database(read_only=True, log_level=2):
-        #     return
         with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
             if xbmcvfs.exists(self._db_file):
                 return
@@ -320,18 +318,19 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while setting pragmas for _database: {error}\n{self._sc_name}', 1)
 
-    def _get_database(self, read_only=False, log_level=1):
-        '''get reference to our sqllite _database - performs basic integrity check'''
+    def _get_database(self, read_only=False, log_level=1, row_factory=True):
         timeout = self._db_read_timeout if read_only else self._db_timeout
         try:
             connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None)
-            connection.execute('SELECT * FROM simplecache LIMIT 1')
+            # connection.execute('SELECT * FROM simplecache LIMIT 1')  # Integrity check ?
         except Exception as error:
             self.kodi_log(f'CACHE: ERROR while retrieving _database: {error}\n{self._sc_name}', log_level)
             return
+        if row_factory:
+            connection.row_factory = sqlite3.Row
         return self._set_pragmas(connection)
 
-    def _execute_sql(self, query, data=None, read_only=False):
+    def _execute_sql(self, query, data=None, read_only=False, row_factory=True):
         '''little wrapper around execute and executemany to just retry a db command if db is locked'''
 
         def database_execute(database):
@@ -348,7 +347,7 @@ class SimpleCache(object):
 
         # always use new db object because we need to be sure that data is available for other simplecache instances
         try:
-            with self._get_database(read_only=read_only) as database:
+            with self._get_database(read_only=read_only, row_factory=row_factory) as database:
                 return database_execute(database)
 
         except Exception as database_exception:
