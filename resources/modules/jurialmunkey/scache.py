@@ -31,6 +31,7 @@ class SimpleCache(object):
     _db_timeout = 3.0
     _db_read_timeout = 1.0
     _queue_limit = 100
+    _row_factory = False
 
     def __init__(self, folder=None, filename=None):
         '''Initialize our caching class'''
@@ -318,7 +319,7 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while setting pragmas for _database: {error}\n{self._sc_name}', 1)
 
-    def _get_database(self, read_only=False, log_level=1, row_factory=True):
+    def _get_database(self, read_only=False, log_level=1):
         timeout = self._db_read_timeout if read_only else self._db_timeout
         try:
             connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None)
@@ -326,11 +327,11 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: ERROR while retrieving _database: {error}\n{self._sc_name}', log_level)
             return
-        if row_factory:
+        if self._row_factory:
             connection.row_factory = sqlite3.Row
         return self._set_pragmas(connection)
 
-    def _execute_sql(self, query, data=None, read_only=False, row_factory=True):
+    def _execute_sql(self, query, data=None, read_only=False):
         '''little wrapper around execute and executemany to just retry a db command if db is locked'''
 
         def database_execute(database):
@@ -347,7 +348,7 @@ class SimpleCache(object):
 
         # always use new db object because we need to be sure that data is available for other simplecache instances
         try:
-            with self._get_database(read_only=read_only, row_factory=row_factory) as database:
+            with self._get_database(read_only=read_only) as database:
                 return database_execute(database)
 
         except Exception as database_exception:
