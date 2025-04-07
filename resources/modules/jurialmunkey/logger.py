@@ -33,7 +33,10 @@ class Logger():
             if isinstance(value, bytes):
                 value = value.decode('utf-8')
             logvalue = f'{self._addon_logname}{value}'
-            if level == 2 and self._debug_logging:
+            if level == 3 and self._debug_logging:
+                import traceback
+                xbmc.log(f'{logvalue}\n{traceback.print_stack()}', level=xbmc.LOGINFO)
+            elif level == 2 and self._debug_logging:
                 xbmc.log(logvalue, level=xbmc.LOGINFO)
             elif level == 1:
                 xbmc.log(logvalue, level=xbmc.LOGINFO)

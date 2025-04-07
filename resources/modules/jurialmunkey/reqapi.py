@@ -277,6 +277,7 @@ class RequestAPI(object):
                     f'\nPostdata: {postdata}' if postdata else '',
                     f'\nHeaders: {headers}' if headers else '',
                     f'\nResponse: {response}' if response else ''], log_level)
+
                 return
             return
 
