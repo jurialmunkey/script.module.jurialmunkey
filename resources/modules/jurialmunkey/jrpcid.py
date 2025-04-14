@@ -4,7 +4,7 @@
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
 from xbmcgui import ListItem
 from jurialmunkey.jsnrpc import get_jsonrpc
-from jurialmunkey.litems import Container, INFOLABEL_MAP
+from jurialmunkey.litems import ContainerDirectory, INFOLABEL_MAP
 from infotagger.listitem import ListItemInfoTag
 
 
@@ -281,7 +281,7 @@ class ListItemMaker():
         return self.listitem
 
 
-class ListGetItemDetails(Container):
+class ListGetItemDetails(ContainerDirectory):
     jrpc_method = ""
     jrpc_properties = []
     jrpc_id = ""

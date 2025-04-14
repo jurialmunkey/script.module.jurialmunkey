@@ -44,7 +44,7 @@ INFOLABEL_MAP = {
 }
 
 
-class Container():
+class ContainerDirectory():
     def __init__(self, handle, paramstring, **params):
         self.handle = handle
         self.paramstring = paramstring
