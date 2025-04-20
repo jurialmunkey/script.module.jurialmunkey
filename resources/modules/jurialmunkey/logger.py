@@ -69,7 +69,7 @@ class Logger():
             return wrapper
         return decorator
 
-    def log_timer_report(self, timer_lists, paramstring):
+    def log_timer_report(self, timer_lists, paramstring, logging=True):
         _threaded = [
             'item_api', 'item_tmdb', 'item_ftv', 'item_map', 'item_cache',
             'item_set', 'item_get', 'item_getx', 'item_non', 'item_nonx', 'item_art',
@@ -78,7 +78,9 @@ class Logger():
         timer_log = ['DIRECTORY TIMER REPORT\n', paramstring, '\n']
         timer_log.append('------------------------------\n')
         for k, v in timer_lists.items():
-            if k in _threaded:
+            if k[:4] == 'name':
+                continue
+            elif k in _threaded:
                 avg_time = f'{sum(v) / len(v):7.3f} sec avg | {max(v):7.3f} sec max | {len(v):3}' if v else '  None'
                 timer_log.append(f' - {k:12s}: {avg_time}\n')
             elif k[:4] == 'item':
@@ -90,16 +92,32 @@ class Logger():
         timer_log.append('------------------------------\n')
         tot_time = f'{sum(total_log) / len(total_log):7.3f} sec' if total_log else '  None'
         timer_log.append(f'{"Total":15s}: {tot_time}\n')
+
+        def get_timer_name(k, x):
+            try:
+                name = timer_lists[f'name_{k}'][x]
+                diff = timer_lists[k][x] - timer_lists[k][x - 1] if x > 0 else 0
+                name = f's = {name:<12}[{diff:^9.3f}]\n'
+                return name
+            except(AttributeError, NameError, IndexError, KeyError, TypeError):
+                return ''
+
         for k, v in timer_lists.items():
+            if k[:4] == 'name':
+                continue
             if v and k in _threaded:
-                timer_log.append(f'\n{k}:\n{" ".join([f"{i:.3f} " for i in v])}\n')
-        self.kodi_log(timer_log, 1)
+                timer_log.append(f'\n{k}:\n{"".join([f"  {i:.3f}{get_timer_name(k, x)}" for x, i in enumerate(v)])}\n')
+        if logging:
+            self.kodi_log(timer_log, 1)
+        return timer_log
 
 
 class TimerList():
-    def __init__(self, dict_obj, list_name, log_threshold=0.001, logging=True):
+    def __init__(self, dict_obj, list_name, log_threshold=0.001, logging=True, item_name=None):
         """ ContextManager for timing code blocks and storing in a list """
         self.list_obj = dict_obj.setdefault(list_name, [])
+        self.name_obj = dict_obj.setdefault(f'name_{list_name}', []) if item_name else None
+        self.item_name = item_name
         self.log_threshold = log_threshold
         self.timer_a = timer() if logging else None
 
@@ -119,6 +137,7 @@ class TimerList():
             return
         if self.total_time > self.log_threshold:
             self.list_obj.append(self.total_time)
+            self.name_obj.append(self.item_name) if self.item_name else None
 
 
 class TimerFunc():
