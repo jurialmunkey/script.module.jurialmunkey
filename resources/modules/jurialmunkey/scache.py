@@ -266,11 +266,11 @@ class SimpleCache(object):
                 query = 'DELETE FROM simplecache WHERE id = ?'
                 self._execute_sql(query, (cache_id,))
 
-                # compact db
-                self._execute_sql("VACUUM")
-
                 # logging
                 self.kodi_log(f'CACHE: delete from db {cache_id}')
+
+            # compact db
+            self._execute_sql("VACUUM")
 
             # Washup
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time))
