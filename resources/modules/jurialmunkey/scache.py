@@ -30,7 +30,6 @@ class SimpleCache(object):
     _fileutils = FILEUTILS
     _db_timeout = 3.0
     _db_read_timeout = 1.0
-    _queue_limit = 100
     _row_factory = False
 
     def __init__(self, folder=None, filename=None):
@@ -41,8 +40,6 @@ class SimpleCache(object):
 
         self._db_file = self._fileutils.get_file_path(basefolder, filename, join_addon_data=basefolder == folder)
         self._sc_name = f'{folder}_{filename}_simplecache'
-
-        self._queue = {}
 
         self.check_cleanup()
         self.kodi_log(f"CACHE: Initialized: {self._sc_name} - Thread Safety Level: {sqlite3.threadsafety} - SQLite v{sqlite3.sqlite_version}")
@@ -76,29 +73,14 @@ class SimpleCache(object):
         '''tell any tasks to stop immediately (as we can be called multithreaded) and cleanup objects'''
         self._exit = True
 
-    def __del__(self):
-        '''make sure close is called'''
-        self.write()
-        self.close()
-
-    def write(self):
-        if not self._queue:
-            return
-
-        items = [i for _, i in self._queue.items()]
-        self._queue = {}
-
-        for i in items:
-            self._set_db_cache(*i)
-
     def get(self, endpoint, cur_time=None):
         '''
             get object from cache and return the results
             endpoint: the (unique) name of the cache object as reference
         '''
         cur_time = cur_time or set_timestamp(0, True)
-        result = self._get_queue(endpoint)  # Try from memory first
-        result = result or self._get_mem_cache(endpoint, cur_time)  # Try from memory first
+        result = None
+        # result = result or self._get_mem_cache(endpoint, cur_time)  # Try from memory first
         result = result or self._get_db_cache(endpoint, cur_time)  # Fallback to checking database if not in memory
         return result
 
@@ -106,13 +88,7 @@ class SimpleCache(object):
         """ set data in cache """
         expires = set_timestamp(cache_days * TIME_DAYS, True)
         data = data_dumps(data, separators=(',', ':'))
-
-        self._set_queue(endpoint, expires, data)
-
-        if len(self._queue) < self._queue_limit:
-            return
-
-        self.write()
+        self._set_db_cache(endpoint, expires, data)
 
     def check_cleanup(self):
         '''check if cleanup is needed - public method, may be called by calling addon'''
@@ -125,17 +101,6 @@ class SimpleCache(object):
         cur_time = set_timestamp(0, True)
         if (int(lastexecuted) + self._auto_clean_interval) < cur_time:
             self._do_cleanup()
-
-    def _get_queue(self, endpoint):
-        if endpoint not in self._queue:
-            return
-        return data_loads(self._queue[endpoint][0])
-
-    def _set_queue(self, endpoint, expires, data):
-        if not self._queue_limit:
-            return
-        self._queue[endpoint] = (endpoint, expires, data, )
-        self._set_mem_cache(endpoint, expires, data)
 
     def _get_mem_cache(self, endpoint, cur_time):
         '''
