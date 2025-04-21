@@ -135,12 +135,13 @@ class SimpleCache(object):
         '''get cache data from sqllite _database'''
 
         query = "SELECT expires, data, checksum FROM simplecache WHERE id = ? LIMIT 1"
-        cache_data = self._execute_sql(query, (endpoint,), read_only=True)
+        connection = self._execute_sql(query, (endpoint,), read_only=True)
 
-        if not cache_data:
+        if not connection:
             return
 
-        cache_data = cache_data.fetchone()
+        cache_data = connection.fetchone()
+        connection.close()
 
         if not cache_data:
             return
@@ -179,7 +180,8 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: _set_db_cache zlib.compress error: {error}\n{self._sc_name} - {endpoint}', 1)
             return
-        self._execute_sql(query, (endpoint, expires, data, 0))
+        connection = self._execute_sql(query, (endpoint, expires, data, 0))
+        connection.close() if connection else None
 
     def _do_delete(self):
         """ Delete all cache entries in simplecache """
@@ -190,8 +192,11 @@ class SimpleCache(object):
         self.kodi_log(f'CACHE: Deleting {self._sc_name}...')
 
         query = 'DELETE FROM simplecache'
-        self._execute_sql(query)
-        self._execute_sql("VACUUM")
+        connection = self._execute_sql(query)
+        connection.close() if connection else None
+
+        connection = self._execute_sql("VACUUM")
+        connection.close() if connection else None
 
         # Washup
         cur_time = set_timestamp(0, True)
@@ -214,7 +219,13 @@ class SimpleCache(object):
             cur_time = set_timestamp(0, True)
             query = "SELECT id, expires FROM simplecache"
 
-            for cache_data in self._execute_sql(query).fetchall():
+            connection = self._execute_sql(query)
+            if not connection:
+                return
+            fetch_data = connection.fetchall()
+            connection.close()
+
+            for cache_data in fetch_data:
                 if self.exit_requested():
                     return
 
@@ -229,13 +240,15 @@ class SimpleCache(object):
 
                 # delete
                 query = 'DELETE FROM simplecache WHERE id = ?'
-                self._execute_sql(query, (cache_id,))
+                connection = self._execute_sql(query, (cache_id,))
+                connection.close() if connection else None
 
                 # logging
                 self.kodi_log(f'CACHE: delete from db {cache_id}')
 
             # compact db
-            self._execute_sql("VACUUM")
+            connection = self._execute_sql("VACUUM")
+            connection.close() if connection else None
 
             # Washup
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time))
