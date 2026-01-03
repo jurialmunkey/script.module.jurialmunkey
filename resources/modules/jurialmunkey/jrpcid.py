@@ -310,9 +310,66 @@ class ListGetItemDetails(ContainerDirectory):
 
         return items
 
+    def get_cast_items(self, dbid):
+        """
+        Get cast members from the JSON-RPC response and create list items for each.
+        This creates a secondary container with cast information.
+        Returns a list of tuples (path, ListItem, is_folder)
+        """
+        method = self.jrpc_method
+        params = {
+            self.jrpc_id: self.jrpc_idtype(dbid),
+            "properties": ["cast"]
+        }
+        response = get_jsonrpc(method, params) or {}
+        item = response.get('result', {}).get(self.jrpc_key)
+        
+        if not item:
+            return []
+        
+        cast = item.get('cast', [])
+        if not cast:
+            return []
+        
+        cast_items = []
+        for idx, cast_member in enumerate(cast):
+            # Create a listitem for each cast member
+            name = cast_member.get('name', '')
+            role = cast_member.get('role', '')
+            thumbnail = cast_member.get('thumbnail', '')
+            order = cast_member.get('order', idx)
+            
+            # Create list item with name as label and role as label2
+            listitem = ListItem(label=name, label2=role, offscreen=True)
+            
+            # Set artwork
+            if thumbnail:
+                listitem.setArt({'thumb': thumbnail, 'icon': thumbnail})
+            
+            # Set properties for skin access
+            listitem.setProperty('name', name)
+            listitem.setProperty('role', role)
+            listitem.setProperty('order', str(order))
+            listitem.setProperty('index', str(idx))
+            if thumbnail:
+                listitem.setProperty('thumbnail', thumbnail)
+            
+            # Add to items list
+            cast_items.append(('', listitem, False))
+        
+        return cast_items
+
     def get_directory(self, dbid, **kwargs):
         items = self.get_items(dbid, **kwargs)
         self.add_items(items, container_content=self.container_content)
+
+    def get_cast_directory(self, dbid, **kwargs):
+        """
+        Populate a directory with cast members.
+        This can be used to fill Container(50) or any other container.
+        """
+        items = self.get_cast_items(dbid)
+        self.add_items(items, container_content='actors')
 
 
 class ListGetAddonDetails(ListGetItemDetails):
@@ -385,3 +442,48 @@ class ListGetEpisodeDetails(ListGetItemDetails):
     item_dbtype = "episode"
     item_library = "video"
     container_content = 'episodes'
+
+
+class ListGetMovieCast(ListGetItemDetails):
+    """
+    Get cast information for a movie and populate a container with cast members.
+    Each list item represents a cast member with name, role, and thumbnail.
+    """
+    jrpc_method = JSON_RPC_LOOKUPS['movieid']['method']
+    jrpc_key = JSON_RPC_LOOKUPS['movieid']['key']
+    jrpc_id = "movieid"
+    jrpc_idtype = int
+
+    def get_directory(self, dbid, **kwargs):
+        items = self.get_cast_items(dbid)
+        self.add_items(items, container_content='actors')
+
+
+class ListGetTVShowCast(ListGetItemDetails):
+    """
+    Get cast information for a TV show and populate a container with cast members.
+    Each list item represents a cast member with name, role, and thumbnail.
+    """
+    jrpc_method = JSON_RPC_LOOKUPS['tvshowid']['method']
+    jrpc_key = JSON_RPC_LOOKUPS['tvshowid']['key']
+    jrpc_id = "tvshowid"
+    jrpc_idtype = int
+
+    def get_directory(self, dbid, **kwargs):
+        items = self.get_cast_items(dbid)
+        self.add_items(items, container_content='actors')
+
+
+class ListGetEpisodeCast(ListGetItemDetails):
+    """
+    Get cast information for an episode and populate a container with cast members.
+    Each list item represents a cast member with name, role, and thumbnail.
+    """
+    jrpc_method = JSON_RPC_LOOKUPS['episodeid']['method']
+    jrpc_key = JSON_RPC_LOOKUPS['episodeid']['key']
+    jrpc_id = "episodeid"
+    jrpc_idtype = int
+
+    def get_directory(self, dbid, **kwargs):
+        items = self.get_cast_items(dbid)
+        self.add_items(items, container_content='actors')
