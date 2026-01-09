@@ -382,14 +382,14 @@ class WindowProperty():
 class WindowPropertySetter():
     window_id = 10000
 
-    def get_window(self):
+    def get_window(self, use_current_window=False, get_dialog=False):
         try:
-            return xbmcgui.Window(self.window_id)
+            return xbmcgui.Window(get_current_window(get_dialog=get_dialog) if use_current_window else self.window_id)
         except RuntimeError:
             return
 
-    def get_property(self, name, set_property=None, clear_property=False, is_type=None, prefix='TMDbHelper'):
-        _win = self.get_window()
+    def get_property(self, name, set_property=None, clear_property=False, is_type=None, prefix='TMDbHelper', use_current_window=False):
+        _win = self.get_window(use_current_window)
         try:
             name = f'{prefix}.{name}'
             ret_property = set_property or _win.getProperty(name)
