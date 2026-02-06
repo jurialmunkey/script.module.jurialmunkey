@@ -2,6 +2,8 @@
 # Module: default
 # Author: jurialmunkey
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
+import os
+import xbmcvfs
 from xbmcgui import ListItem
 from jurialmunkey.jsnrpc import get_jsonrpc
 from jurialmunkey.litems import ContainerDirectory, INFOLABEL_MAP
@@ -190,6 +192,40 @@ class ListItemMakerBase():
 
 
 class ListItemMakerVideo(ListItemMakerBase):
+
+    @cached_property
+    def filenameandpath(self):
+        filenameandpath = self.meta.get('file') or ''
+        filenameandpath = xbmcvfs.translatePath(filenameandpath)
+        filenameandpath = xbmcvfs.validatePath(filenameandpath)
+        return filenameandpath
+
+    @cached_property
+    def filename(self):
+        if not self.filenameandpath:
+            return ''
+        return os.path.basename(self.filenameandpath)
+
+    @cached_property
+    def pathname(self):
+        if not self.filenameandpath:
+            return ''
+        return os.path.dirname(self.filenameandpath)
+
+    @cached_property
+    def fileextension(self):
+        if not self.filenameandpath:
+            return ''
+        return os.path.splitext(self.filenameandpath)[1]
+
+    def get_infoproperties(self):
+        infoproperties = super().get_infoproperties()
+        infoproperties['filenameandpath'] = self.filenameandpath
+        infoproperties['fileextension'] = self.fileextension
+        infoproperties['filename'] = self.filename
+        infoproperties['path'] = self.pathname
+        return infoproperties
+
     def get_infolabels(self):
         infolabels = {}
         infolabels.update({INFOLABEL_MAP[k]: v for k, v in self.meta.items() if v and k in INFOLABEL_MAP and v != -1})
