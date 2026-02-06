@@ -267,6 +267,7 @@ class ListItemMaker():
             self.info_tag.set_info(self.infolabels)
             self.info_tag.set_unique_ids(self.meta.get('uniqueid') or {})
             self.info_tag.set_stream_details(self.meta.get('streamdetails') or {})
+            self.info_tag.set_cast(self.meta.get('cast') or [])
 
         if self.dbtype in ('tvshow', 'season'):
             self.infoproperties['totalepisodes'] = int(self.infolabels.get('episode') or 0)
