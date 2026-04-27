@@ -9,28 +9,24 @@ class KodiPlugin():
         self._addon_name = self._addon.getAddonInfo('name')
         self._addon_path = self._addon.getAddonInfo('path')
 
-    @property
-    def settings(self):
-        return self._addon.getSettings()
-
     def get_setting(self, setting, mode='bool'):
         def get_func():
             if mode == 'bool':
-                return self.settings.getBool
+                return self._addon.getSettingBool
             if mode == 'int':
-                return self.settings.getInt
+                return self._addon.getSettingInt
             if mode == 'str':
-                return self.settings.getString
+                return self._addon.getSettingString
         return get_func()(setting)
 
     def set_setting(self, setting, data, mode='bool'):
         def set_func():
             if mode == 'bool':
-                return self.settings.setBool
+                return self._addon.setSettingBool
             if mode == 'int':
-                return self.settings.setInt
+                return self._addon.setSettingInt
             if mode == 'str':
-                return self.settings.setString
+                return self._addon.setSettingString
         return set_func()(setting, data)
 
     def get_localized(self, localize_int=0):
