@@ -57,7 +57,7 @@ def parse_paramstring(paramstring):
     for param in paramstring.split('&'):
         if '=' not in param:
             continue
-        k, v = param.split('=')
+        k, v = param.split('=', 1)
         k = unquote_plus(k)
         v = unquote_plus(v)
         v = v.strip('\'').strip('"')  # Strip out quote marks from Kodi string
