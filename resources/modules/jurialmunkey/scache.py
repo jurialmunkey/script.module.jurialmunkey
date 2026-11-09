@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import zlib
-import xbmcvfs
 from xbmc import Monitor
 from xbmcgui import Window
 from jurialmunkey.locker import MutexPropLock
@@ -10,6 +9,7 @@ from jurialmunkey.futils import FileUtils
 from jurialmunkey.futils import json_loads as data_loads
 from json import dumps as data_dumps
 import sqlite3
+from hashlib import sha256
 
 
 FILEUTILS = FileUtils()
@@ -39,7 +39,8 @@ class SimpleCache(object):
         filename = filename or 'defaultcache.db'
 
         self._db_file = self._fileutils.get_file_path(basefolder, filename, join_addon_data=basefolder == folder)
-        self._sc_name = f'{folder}_{filename}_simplecache'
+        database_id = sha256(self._db_file.encode('utf-8')).hexdigest()
+        self._sc_name = f'{folder}_{filename}_simplecache_{database_id}'
 
         self.check_cleanup()
         self.kodi_log(f"CACHE: Initialized: {self._sc_name} - Thread Safety Level: {sqlite3.threadsafety} - SQLite v{sqlite3.sqlite_version}")
@@ -264,8 +265,6 @@ class SimpleCache(object):
 
     def _init_database(self):
         with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
-            if xbmcvfs.exists(self._db_file):
-                return
             database = self._create_database()
             cur_time = set_timestamp(0, True)
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
@@ -289,7 +288,7 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while initializing _database: {error}\n{self._sc_name}', 1)
         try:
-            connection.execute("CREATE INDEX idx ON simplecache(id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx ON simplecache(id)")
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while creating index for _database: {error}\n{self._sc_name}', 1)
         try:
