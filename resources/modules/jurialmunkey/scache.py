@@ -8,6 +8,9 @@ from jurialmunkey.tmdate import set_timestamp
 from jurialmunkey.futils import FileUtils
 from jurialmunkey.futils import json_loads as data_loads
 from json import dumps as data_dumps
+from contextlib import closing, contextmanager
+from operator import attrgetter, methodcaller
+from threading import local
 import sqlite3
 from hashlib import sha256
 
@@ -21,11 +24,24 @@ TIME_HOURS = 60 * TIME_MINUTES
 TIME_DAYS = 24 * TIME_HOURS
 
 
+class SimpleCacheThreadConnections(local):
+    """The current thread's open connections by database file."""
+
+    def __init__(self):
+        self.connections = {}
+
+
 class SimpleCache(object):
-    '''simple stateless caching system for Kodi'''
+    '''simple stateless caching system for Kodi
+
+    Connections belong to the thread that opens them. A thread's outermost session()
+    opens a connection and explicitly closes it when the session ends; nested sessions
+    on the same thread borrow it. Every statement fetches its results before its cursor
+    closes, so no connection or cursor outlives the session that opened it.
+    '''
     _exit = False
     _auto_clean_interval = 4 * TIME_HOURS
-    _database = None
+    _thread_connections = SimpleCacheThreadConnections()
     _basefolder = ''
     _fileutils = FILEUTILS
     _db_timeout = 3.0
@@ -136,13 +152,7 @@ class SimpleCache(object):
         '''get cache data from sqllite _database'''
 
         query = "SELECT expires, data, checksum FROM simplecache WHERE id = ? LIMIT 1"
-        connection = self._execute_sql(query, (endpoint,), read_only=True)
-
-        if not connection:
-            return
-
-        cache_data = connection.fetchone()
-        connection.close()
+        cache_data = self.fetch_one(query, (endpoint,), read_only=True)
 
         if not cache_data:
             return
@@ -181,8 +191,7 @@ class SimpleCache(object):
         except Exception as error:
             self.kodi_log(f'CACHE: _set_db_cache zlib.compress error: {error}\n{self._sc_name} - {endpoint}', 1)
             return
-        connection = self._execute_sql(query, (endpoint, expires, data, 0))
-        connection.close() if connection else None
+        self.execute_sql(query, (endpoint, expires, data, 0))
 
     def _do_delete(self):
         """ Delete all cache entries in simplecache """
@@ -192,12 +201,9 @@ class SimpleCache(object):
         self.set_window_property(f'{self._sc_name}.cleanbusy', "busy")
         self.kodi_log(f'CACHE: Deleting {self._sc_name}...')
 
-        query = 'DELETE FROM simplecache'
-        connection = self._execute_sql(query)
-        connection.close() if connection else None
-
-        connection = self._execute_sql("VACUUM")
-        connection.close() if connection else None
+        with self.session():
+            self.execute_sql('DELETE FROM simplecache')
+            self.vacuum()
 
         # Washup
         cur_time = set_timestamp(0, True)
@@ -216,15 +222,13 @@ class SimpleCache(object):
         self.kodi_log(f"CACHE: Running cleanup...\n{self._sc_name}", 1)
         self.set_window_property(f'{self._sc_name}.cleanbusy', "busy")
 
-        with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
+        with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log), self.session():
             cur_time = set_timestamp(0, True)
             query = "SELECT id, expires FROM simplecache"
 
-            connection = self._execute_sql(query)
-            if not connection:
+            fetch_data = self.fetch_all(query)
+            if fetch_data is None:
                 return
-            fetch_data = connection.fetchall()
-            connection.close()
 
             for cache_data in fetch_data:
                 if self.exit_requested():
@@ -240,16 +244,13 @@ class SimpleCache(object):
                     continue
 
                 # delete
-                query = 'DELETE FROM simplecache WHERE id = ?'
-                connection = self._execute_sql(query, (cache_id,))
-                connection.close() if connection else None
+                self.execute_sql('DELETE FROM simplecache WHERE id = ?', (cache_id,))
 
                 # logging
                 self.kodi_log(f'CACHE: delete from db {cache_id}')
 
             # compact db
-            connection = self._execute_sql("VACUUM")
-            connection.close() if connection else None
+            self.vacuum()
 
             # Washup
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time))
@@ -265,10 +266,9 @@ class SimpleCache(object):
 
     def _init_database(self):
         with MutexPropLock(f'{self._db_file}.lockfile', kodi_log=self.kodi_log):
-            database = self._create_database()
+            self._create_database()
             cur_time = set_timestamp(0, True)
             self.set_window_property(f'{self._sc_name}.clean.lastexecuted', str(cur_time - self._auto_clean_interval + 600))
-        return database
 
     @staticmethod
     def create_database_execute(connection):
@@ -281,9 +281,17 @@ class SimpleCache(object):
             )""")
 
     def _create_database(self):
+        self.kodi_log(f'CACHE: Initialising: {self._db_file}...', 1)
         try:
-            self.kodi_log(f'CACHE: Initialising: {self._db_file}...', 1)
-            connection = sqlite3.connect(self._db_file, timeout=5.0, isolation_level=None)
+            connection = self.connect(timeout=5.0)
+        except Exception as error:
+            self.kodi_log(f'CACHE: Exception while initializing _database: {error}\n{self._sc_name}', 1)
+            return
+        with closing(connection):
+            self._create_database_tables(connection)
+
+    def _create_database_tables(self, connection):
+        try:
             self.create_database_execute(connection)
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while initializing _database: {error}\n{self._sc_name}', 1)
@@ -291,42 +299,64 @@ class SimpleCache(object):
             connection.execute("CREATE INDEX IF NOT EXISTS idx ON simplecache(id)")
         except Exception as error:
             self.kodi_log(f'CACHE: Exception while creating index for _database: {error}\n{self._sc_name}', 1)
-        try:
-            return self._set_pragmas(connection)
-        except Exception as error:
-            self.kodi_log(f'CACHE: Exception while setting pragmas for _database: {error}\n{self._sc_name}', 1)
 
-    def _get_database(self, read_only=False, log_level=1):
-        timeout = self._db_read_timeout if read_only else self._db_timeout
-        try:
-            connection = sqlite3.connect(self._db_file, timeout=timeout, isolation_level=None)
-            # connection.execute('SELECT * FROM simplecache LIMIT 1')  # Integrity check ?
-        except Exception as error:
-            self.kodi_log(f'CACHE: ERROR while retrieving _database: {error}\n{self._sc_name}', log_level)
-            return
+    def connect(self, timeout=None):
+        """Open a connection that the calling thread owns and must close."""
+        connection = sqlite3.connect(self._db_file, timeout=timeout or self._db_timeout, isolation_level=None)
         if self._row_factory:
             connection.row_factory = sqlite3.Row
         return self._set_pragmas(connection)
 
-    def _execute_sql(self, query, data=None, read_only=False):
-        '''little wrapper around execute and executemany to just retry a db command if db is locked'''
+    @property
+    def _connections(self):
+        return self._thread_connections.connections
 
-        def database_execute(database):
-            try:
-                if not data:
-                    return database.execute(query)
-                if isinstance(data, list):
-                    return database.executemany(query, data)
-                return database.execute(query, data)
-            except sqlite3.OperationalError as operational_exception:
-                self.kodi_log(f'CACHE: database OPERATIONAL ERROR! -- {operational_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
-            except Exception as other_exception:
-                self.kodi_log(f'CACHE: database OTHER ERROR! -- {other_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
-
-        # always use new db object because we need to be sure that data is available for other simplecache instances
+    @contextmanager
+    def session(self, read_only=False):
+        """Borrow the current thread's connection, or own one until this scope ends."""
+        connection = self._connections.get(self._db_file)
+        if connection is not None:
+            yield connection
+            return
+        connection = self.connect(timeout=self._db_read_timeout if read_only else self._db_timeout)
+        self._connections[self._db_file] = connection
         try:
-            with self._get_database(read_only=read_only) as database:
-                return database_execute(database)
+            yield connection
+        finally:
+            del self._connections[self._db_file]
+            connection.close()
 
+    def _database_execute(self, cursor, query, data=None, read_only=False):
+        try:
+            if not data:
+                return cursor.execute(query)
+            if isinstance(data, list):
+                return cursor.executemany(query, data)
+            return cursor.execute(query, data)
+        except sqlite3.OperationalError as operational_exception:
+            self.kodi_log(f'CACHE: database OPERATIONAL ERROR! -- {operational_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
+        except Exception as other_exception:
+            self.kodi_log(f'CACHE: database OTHER ERROR! -- {other_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
+
+    def _get_result(self, query, data, get_result, read_only=False):
+        """Execute in the thread's session; read the result before the cursor closes."""
+        try:
+            with self.session(read_only=read_only) as connection, closing(connection.cursor()) as cursor:
+                if self._database_execute(cursor, query, data, read_only=read_only) is None:
+                    return
+                return get_result(cursor)
         except Exception as database_exception:
             self.kodi_log(f'CACHE: database GET DATABASE ERROR! -- {database_exception}\n{self._sc_name} -- read_only: {read_only}', 2)
+
+    def execute_sql(self, query, data=None):
+        """Return the number of rows changed, or None after an error."""
+        return self._get_result(query, data, attrgetter('rowcount'))
+
+    def fetch_all(self, query, data=None, read_only=False):
+        return self._get_result(query, data, methodcaller('fetchall'), read_only=read_only)
+
+    def fetch_one(self, query, data=None, read_only=False):
+        return self._get_result(query, data, methodcaller('fetchone'), read_only=read_only)
+
+    def vacuum(self):
+        return self.execute_sql('VACUUM')
